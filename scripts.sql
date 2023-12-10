@@ -15,6 +15,38 @@ CREATE TABLE "users" (
 	CONSTRAINT email_unique UNIQUE (email)
 );
 
+
+-- ********************************************************************************************************
+---ALERNATE USER TABLE:
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(100) NOT NULL
+);
+
+-- Create a Function for Password Hashing
+CREATE OR REPLACE FUNCTION hash_password(password TEXT)
+RETURNS TEXT AS $$
+BEGIN
+    RETURN crypt(password, gen_salt('bf'));
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a Trigger Function to Hash Password on Insert
+CREATE OR REPLACE FUNCTION hash_password_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.password_hash := hash_password(NEW.password_hash);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Set up the Trigger
+CREATE TRIGGER encrypt_password_trigger
+BEFORE INSERT ON users
+FOR EACH ROW EXECUTE FUNCTION hash_password_trigger();
+
+-- ********************************************************************************************************
 -- Assing unique field afterward table is created:
 ALTER TABLE users
 ADD CONSTRAINT email_unique UNIQUE (email);
@@ -29,7 +61,7 @@ INSERT into "users" (
 	last_name, 
 	full_name, 
 	company, 
-	"role",
+	"job_title",
 	business_unit,
 	"access",
 	mobile_phone, 
@@ -63,3 +95,10 @@ SET column1 = value1,
     column2 = value2,
     ...
 WHERE condition;
+
+
+-- update multiple records
+update users
+set company = 'nlightn labs, Inc.'
+where
+	first_name in ('Avik' , 'Solution' , 'Admin' , 'Test');
