@@ -238,7 +238,7 @@ app.delete("/db/:args", async (req,res)=>{
 // Authenticate user
 app.use("/db/authenticateUser", async (req,res)=>{
 
-    const {params} = req.body
+    const params = req.body.params
     const email = params.email
     const pwd = params.pwd
 
@@ -260,57 +260,9 @@ app.use("/db/authenticateUser", async (req,res)=>{
     }
 })
 
-//add user record
-app.post("/db/addUser", async(req, res)=>{
-
-    const{params} = req.body
-    let table = params.table.toString()
-    let columns = params.columns
-    let values = params.values
-    values.map((item,index)=>{
-        values[index] =`'${item}'`
-    }).toString()
-
-    if(table =='users' && columns.includes('pwd')){
-        columns.pop(columns.findIndex(str=>str=='pwd'))
-        values.pop(columns.findIndex(str=>str=='pwd'))
-
-        // Query 1: Check if user exists
-        const query1 = `select ((select email from "users" where email='${email}')) as matched;`
-        try {
-            const results = await dbQuery(query1);
-            console.log(results);
-            let matchResult = results.rows[0].matched
-            console.log(matchResult)
-            //sends back true if user is found.
-            res.send(matchResult)
-
-            if (!matchResult){
-                // Query 2: remove the pwd field and insert all other fields
-                const query2 =`INSERT into ${table} (${columns}) VALUES (${values});`;
-                console.log(query2)
-                try {
-                    const results = await dbQuery(query2);
-                    console.log(results);
-                    res.status(200).json({
-                    status: "success",
-                    data: results.rows[0]
-                });  
-                } catch(err){
-                    console.log(err)
-                    res.err
-                }
-            }
-        } catch(err){
-            console.log(err)
-            res.err
-        }
-    }
-})
-
 
 //get user record
-app.use("/db/getUserRecord", async (req, res)=>{
+app.use("/db/userRecord", async (req, res)=>{
     const {params} = req.body
     const email = params.email
     const query =`select * from "users" where "email"='${email}' limit 1`
@@ -322,6 +274,122 @@ app.use("/db/getUserRecord", async (req, res)=>{
         res.send(error)
     }
 })
+
+//add user record
+app.post("/db/addUser", async(req, res)=>{
+
+    const {params} = req.body
+    let table = params.table
+    let columns = params.columns
+    let values = params.values
+
+    if(table =='users' && columns.includes('pwd')){
+        // columns.pop(columns.findIndex(str=>str=='pwd'))
+        // values.pop(columns.findIndex(str=>str=='pwd'))
+
+        const emailLoc = columns.findIndex(x=>x==='email')
+        const email =values[emailLoc].toString()
+        console.log(email)
+
+        let matchResult = ""
+
+        let errorMessage ={
+            add_user_error: "",
+            get_user_record_error: "",
+        }
+
+        // Query 1: Insert the fields
+        if (matchResult !=="true"){
+            columns = columns.toString()
+            values.map((item,index)=>{
+                values[index] = `'${item}'`
+              }).toString()
+                const query2 =`INSERT into ${table} (${columns}) VALUES (${values});`;
+                console.log(query2)
+                try {
+                    const results = await dbQuery(query2);
+                    console.log(results);
+                    const params2={email: email}
+                    try{
+                        const query =`select * from "users" where "email"='${email}' limit 1`
+                        const results = await dbQuery(query);
+                        console.log(results);
+                        res.send(results.rows[0])
+                    }catch(error){
+                        console.log(error)
+                        errorMessage = {...errorMessage,['get_user_record_error']:error}
+                        res.send(errorMessage)
+                    }
+                } catch(error){
+                    console.log(error.detail)
+                    errorMessage = {...errorMessage,['add_user_error']:error}
+                    if(error.detail && (error.detail).toString().toLowerCase().search("exists")>0){
+                        res.send("exists")
+                        }
+                    }
+                }
+        }else{
+            console.log(errorMessage)
+            res.send(errorMessage)
+        }        
+    }
+)
+
+// Edit user record
+app.put("/db/editUser", async(req, res)=>{
+
+    const{params} = req.body
+    let table = params.table
+    let columns = params.columns
+    let values = params.values
+
+    if(table =='users' && columns.includes('pwd')){
+        columns.pop(columns.findIndex(str=>str=='pwd'))
+        values.pop(columns.findIndex(str=>str=='pwd'))
+
+        const emailLoc = columns.findIndex(x=>x==='email')
+        const email =values[emailLoc].toString()
+        console.log(email)
+
+        // Query 1: Check if user exists
+        const query1 = `select ((select email from "users" where email='${email}')) as matched;`
+
+        try {
+            const results = await dbQuery(query1);
+            console.log(results);
+            let matchResult = results.rows[0].matched
+            console.log(matchResult)
+            //sends back true if user is found.
+            res.send(matchResult)
+
+            
+            if (matchResult !=="true"){
+                // Query 2: remove the pwd field and insert all other fields
+                columns = columns.toString()
+                values.map((item,index)=>{
+                    values[index] = `'${item}'`
+                  }).toString()
+
+                const query2 =`INSERT into ${table} (${columns}) VALUES (${values});`;
+                console.log(query2)
+                try {
+                    const results = await dbQuery(query2);
+                    console.log(results);
+                    res.status(200).json({
+                    status: "success",
+                    data: results.rows[0]
+                });  
+                } catch(err){
+                    console.log(err)
+                }
+            }
+        } catch(err){
+            console.log(err)
+            res.err
+        }
+    }
+})
+
 
 const openai = new OpenAI({
     apiKey: "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",

@@ -24,6 +24,11 @@ CREATE TABLE users (
     password_hash VARCHAR(100) NOT NULL
 );
 
+ALTER TABLE
+ADD COLUMN created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN pwd VARCHAR(255),
+CONSTRAINT email_unique UNIQUE (email);
+
 -- Create a Function for Password Hashing
 CREATE OR REPLACE FUNCTION hash_password(password TEXT)
 RETURNS TEXT AS $$
@@ -32,19 +37,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create a Trigger Function to Hash Password on Insert
+--CREATE A function for when to trigger
 CREATE OR REPLACE FUNCTION hash_password_trigger()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.password_hash := hash_password(NEW.password_hash);
+    IF TG_OP = 'INSERT' THEN
+        NEW.pwd := hash_password(NEW.pwd);
+    ELSIF TG_OP = 'UPDATE' THEN
+        NEW.pwd := hash_password(NEW.pwd);
+    END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 -- Set up the Trigger
 CREATE TRIGGER encrypt_password_trigger
-BEFORE INSERT ON users
+BEFORE INSERT OR UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION hash_password_trigger();
+
 
 -- ********************************************************************************************************
 -- Assing unique field afterward table is created:
@@ -102,3 +112,8 @@ update users
 set company = 'nlightn labs, Inc.'
 where
 	first_name in ('Avik' , 'Solution' , 'Admin' , 'Test');
+
+-- show columns
+SELECT column_name, data_type
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = N'users'
