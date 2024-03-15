@@ -1,23 +1,61 @@
-const express = require('express');
+// convert "require" to import for ES
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+
+//Import environment evariables
 const dotenv = require('dotenv')
-dotenv.config()
-const cors = require("cors");
-var bodyParser = require('body-parser');
+dotenv.config();
+console.log(process.env.NODE_ENV)
 
-const OpenAI = require('openai')
-const path = require('path')
-const {generateUploadURL} = require('./s3.js')
-const { engine } = require('express-handlebars');
 
+//Create path functions
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
+const __dirname = path.dirname(__filename); // get the name of the directory
+
+// Import Express and create express app
+const express = require('express');
 const app = express();
 
+const cors = require("cors");
+
+
+
 //Body parser middleware (for sending back data in html)
+var bodyParser = require('body-parser');
 app.use(bodyParser.json({limit: '50mb'}));
 app.use(bodyParser.urlencoded({limit: '100mb', extended: true}));
 app.use(express.json());
-
+app.use(bodyParser.json());
 app.use(cors());
-// app.use(express.urlencoded({extended: false}));
+app.options('*', cors());
+
+const { spawn } = require('child_process');
+const axios = require('axios');
+const fs = require('fs')
+
+
+const aws = require('aws-sdk')
+const crypto = require('crypto')
+const { promisify } =require('util');
+const randomBytes = promisify(crypto.randomBytes)
+
+
+const passport = require('passport');
+const OAuth2Strategy = require('passport-oauth2').Strategy;
+
+var FormData = require('form-data');
+
+// import fetch from 'node-fetch'
+const multer = require('multer');
+
+
+const OpenAI = require('openai')
+const { engine } = require('express-handlebars');
+
+
+
 
 //Handlebars Middleware
 app.engine('handlebars', engine({defaultLayout: 'main'}));
@@ -39,7 +77,7 @@ pool.connect((err, release) => {
     if (err) {
       return console.error(`connection error to database`, err.stack)
     } else {
-      return console.log(`connected successfuly to database`)
+      return //console.log(`connected successfuly to database`)
     }
   })
 const dbQuery=(text, params) =>pool.query(text, params);
@@ -48,51 +86,147 @@ const dbQuery=(text, params) =>pool.query(text, params);
 //general database query
 app.use("/db/query", async (req, res)=>{
     
-    console.log(req.body)
+    //console.log(req.body)
     const {query} = req.body
-    console.log(query)
     
     try{
         const result = await dbQuery(query);
         res.json(result.rows);
-        console.log(result.rows)
+        //console.log(result.rows)
     } catch(err){
-        console.log(err)
+        res.send(err)
+        //console.log(err)
     }
 })
 
 app.post("/db/addRecord",async (req, res)=>{
-    const{params} = req.body
-    let table = params.table
-    let columns = (params.columns).toString()
-    let values = params.values
-    values.map((item,index)=>{
-        values[index] = `'${item}'`
+        // console.log(req)
+        const {tableName, formData} = req.body
+
+        console.log("*******running add record query....****")
+        console.log("TABLE NAME: ",tableName)
+        console.log("FORM DATA: ", formData)
+    
+        // List of keys to delete
+        let keysToDelete = ['id', 'record_created'];
+    
+        keysToDelete.forEach(key => {
+            if (formData.hasOwnProperty(key)) {
+                delete formData[key];
+            }
+        });
+
+
+    let columns = Object.keys(formData)
+    columns.map((item,index)=>{
+        columns[index] = `"${item}"`
       }).toString()
     
-    const query =`INSERT into ${table} (${columns}) VALUES (${values});`;
+    let values = Object.values(formData)
+    values.map((item,index)=>{
+        if(item == "" || item==null){
+            values[index]='null'
+        }else{
+            values[index]=`'${item}'`
+        }
+      }).toString()
+
+    
+    const query =`INSERT into ${tableName} (${columns}) VALUES (${values}) returning *;`;
+    console.log(query)
+
     try{
         const result = await dbQuery(query);
         res.json(result.rows[0]);
-        console.log(result.rows[0])
     } catch(err){
         console.log(err)
     }
 })
 
 app.post("/db/updateRecord",async (req, res)=>{
-    const{params} = req.body
-    const table = params.table
-    const fieldsAndValues = params.fieldsAndValues
-    //fieldsAndValues should be text string: column_1 = 'value_1', column_1 = 'value_1', etc.
+    
+    const {tableName, idField,recordId, formData} = req.body
+    //console.log(formData)
 
-    const query =`UPDATE ${table} set ${fieldsAndValues};`;
+    let fieldsAndValues = []
+    Object.keys(formData).map(field=>{
+        //console.log(field)
+        if (field!=='id' && field!=='record_created'){
+            if(tableName=='users' && field=='pwd'){
+                let encryptedPwd = `crypt('${formData[field]}',gen_salt('bf'))`
+                fieldsAndValues.push(`"${field}" = ${encryptedPwd}`)
+            }else{
+                let value=`'${formData[field]}'`
+                if(formData[field] ==null || formData[field]=="null" || formData[field]==""){
+                    value=null
+                }
+                fieldsAndValues.push(`"${field}" = ${value}`)
+            }
+        }
+    })
+    fieldsAndValues = fieldsAndValues.toString()
+
+    const query =`UPDATE ${tableName} set ${fieldsAndValues} where "${idField}" ='${recordId}' returning *;`;
+    console.log(query)
+
     try{
         const result = await dbQuery(query);
+        // console.log(result)
         res.json(result.rows[0]);
-        console.log(result.rows[0])
     } catch(err){
         console.log(err)
+    }
+})
+
+app.post("/db/getRecord",async (req, res)=>{
+
+    const {params} = req.body
+    const tableName = params.tableName
+    const recordId = params.recordId
+    const idField = params.idField
+
+    const query =`Select * from ${tableName} where "${idField}"='${recordId}';`;
+    //console.log(query)
+    try{
+        const result = await dbQuery(query);
+        //console.log(result)
+        res.json(result.rows[0]);
+    } catch(err){
+        //console.log(err)
+    }
+})
+
+app.post("/db/getRecords",async (req, res)=>{
+
+    const {params} = req.body
+    const tableName = params.tableName
+    const conditionalField = params.conditionalField
+    const condition = params.condition
+
+    const query =`Select * from ${tableName} where "${conditionalField}"='${condition}';`;
+    //console.log(query)
+    try{
+        const result = await dbQuery(query);
+        res.json(result.rows);
+    } catch(err){
+        //console.log(err)
+    }
+})
+
+
+//Delete Record
+app.post("/db/deleteRecord", async (req,res)=>{
+
+    const {params} = req.body
+    const tableName = params.tableName
+    const recordId = params.recordId
+    const idField = params.idField
+
+    try{    
+        const result = await dbQuery(`DELETE from ${tableName} WHERE "${idField}" = '${recordId}' returning *;`)
+        res.status(200).json(result);
+    } catch(err){
+        //console.log(err)
     }
 })
 
@@ -102,13 +236,43 @@ app.get("/db/table/:table", async (req, res)=>{
     const table = req.params.table;
 
     try{
-        const result = await dbQuery(`SELECT * from ${table};`);
-        res.json(result.rows);
-        console.log(result.rows)
+        const result1 = await dbQuery(`SELECT * from ${table};`);
+        //console.log(result1.rows)
+        const data = result1.rows
+
+        const result2 = await dbQuery(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${table}'`)
+        //console.log(result2.rows)
+        const dataTypes = result2.rows
+
+        res.json({data, dataTypes});
+
     } catch(err){
-        console.log(err)
+        //console.log(err)
     }
 })
+
+//database query to get a table
+app.post("/data", async (req, res)=>{
+
+    const tableName = "users";
+
+    try{
+        const result1 = await dbQuery(`SELECT * from ${tableName};`);
+        //console.log(result1.rows)
+        const data = result1.rows
+
+        const result2 = await dbQuery(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}'`)
+        //console.log(result2.rows)
+        const dataTypes = result2.rows
+
+        res.json({data, dataTypes});
+
+    } catch(err){
+        //console.log(err)
+    }
+})
+
+
 
 
 //database query to get a list from a table
@@ -121,10 +285,10 @@ app.get("/db/list/:table/:field", async (req, res)=>{
         data.forEach(r=>{
             list.push(Object.values(r)[0]);
         });
-        console.log(list);
+        //console.log(list);
         res.json(list);
     } catch(err){
-        console.log(err)
+        //console.log(err)
     }
 })
 
@@ -138,6 +302,8 @@ app.get("/db/subList/:table/:field/:conditionalField/:conditionalValue", async (
 
     const query = `SELECT DISTINCT ${field} from ${table} where ${conditionalField} = '${conditionalValue}';`
 
+    //console.log(query)
+
     try{
         const result = await dbQuery(query)
         const data = result.rows;
@@ -145,10 +311,10 @@ app.get("/db/subList/:table/:field/:conditionalField/:conditionalValue", async (
         data.forEach(r=>{
             list.push(Object.values(r)[0]);
         });
-        console.log(list);
+        //console.log(list);
         res.json(list);
     } catch(err){
-        console.log(err)
+        //console.log(err)
     }
 })
 
@@ -164,7 +330,7 @@ app.get("/db/records/:table/:conditionalField/:conditionalValue", async (req, re
         const result = await dbQuery(`SELECT * from ${table} where ${conditionalField} = ${conditionalValue};`)
         res.json(result.rows);
     } catch(err){
-        console.log(err)
+        // console.log(err)
     }
 })
     
@@ -180,57 +346,66 @@ app.get("/db/value/:table/:lookupField/:conditionalField/:conditionalValue", asy
     try{
         const result = await dbQuery(`SELECT "${lookupField}" from ${table} where "${conditionalField}" = '${conditionalValue}';`)
         res.status(200).json(Object.values(result.rows[0])[0]);
-        console.log(Object.values(result.rows[0])[0])
+        //console.log(Object.values(result.rows[0])[0])
     } catch(err){
-        console.log(err)
+        //console.log(err)
     }
 })
 
-
-//Add record
-app.post("/db/addRecord",async (req, res)=>{
-    const{params} = req.body
+// Filter Table
+app.post("/db/filterTable",async (req, res)=>{
     
-    let table = params.table
-    let columns = (params.columns).toString()
-    let values = params.values
-    values.map((item,index)=>{
-        values[index] = `'${item}'`
-      }).toString()
+    const {params} = req.body
 
-    const query =`INSERT into ${table} (${columns}) VALUES (${values});`;
-    console.log(query)
-    console.log(query);
-    
-      try {
-          const results = await dbQuery(query);
-          console.log(results);
-          res.status(200).json({
-            status: "success",
-            data: results.rows[0]
-            });
-      } catch(err){
-          console.log(err)
-      }
+    //console.log(params)
+    const tableName = params.tableName
+    const filterList = params.filterList
+    //console.log(filterList)
+
+    let filterString = "" 
+    const numberOfFilters = filterList.length
+
+    filterList.map((item,index)=>{  
+      if(item.value.length !=0 || item.value !=""){
+          let conditionString = `"${item.db_name}"${item.condition}'${item.db_value}'`
+          //console.log(index)
+          if(index == 0 || index < numberOfFilters-1){
+            filterString = `${filterString}${conditionString}`
+          }else{
+            filterString = `${filterString} and ${conditionString}`
+          }
+      }      
     })
+    let query = ""      
+    if(filterString.length>0 && filterString !=""){
+      query = `SELECT * FROM ${tableName} WHERE ${filterString};`
+      //console.log(query)
+    }else{
+      query = `SELECT * FROM ${tableName};`
+      //console.log(query)
+    }
 
+    try{
+        const result1 = await dbQuery(query);
+        //console.log(result1.rows)
+        const data = result1.rows
+    
+        const result2 = await dbQuery(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}'`)
+        //console.log(result2.rows)
+        const dataTypes = result2.rows
+    
+        res.json({data, dataTypes});
 
-//Delete Record
-app.delete("/db/:args", async (req,res)=>{
-
-    console.log(req.params.args);
-    const args = JSON.parse(req.params.args);
-
-    console.log(args);
-    const table = args.table;
-    const email = args.email;
-
-    try{    
-        const result = await dbQuery(`DELETE from ${table} WHERE email = $1 returning *;`,[email])
-        console.log(result)
-        res.status(200).json({data: result.rows});
     } catch(err){
-        console.log(err)
+        //console.log(err)
+        const result1 = await dbQuery(`SELECT * FROM ${tableName}`);
+        const data = result1.rows
+    
+        const result2 = await dbQuery(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}'`)
+        //console.log(result2.rows)
+        const dataTypes = result2.rows
+
+        res.json({data, dataTypes});
     }
 })
 
@@ -244,19 +419,19 @@ app.use("/db/authenticateUser", async (req,res)=>{
 
     const query = `select ((select pwd from "users" where email='${email}') =crypt('${pwd}',(select pwd from "users" where email='${email}'))) as matched;`
 
-    console.log(query);
+    //console.log(query);
 
       try{    
         const result = await dbQuery(query);
-        console.log(result)
+        //console.log(result)
         let matchResult = result.rows[0].matched
         if(matchResult !==true){
             matchResult = false
         }
-        console.log(matchResult)
+        //console.log(matchResult)
         res.send(matchResult)
     } catch(err){
-        console.log(err)
+        //console.log(err)
     }
 })
 
@@ -268,7 +443,7 @@ app.use("/db/userRecord", async (req, res)=>{
     const query =`select * from "users" where "email"='${email}' limit 1`
     try{
         const results = await dbQuery(query);
-        console.log(results);
+        //console.log(results);
         res.send(results.rows[0])
     }catch(error){
         res.send(error)
@@ -279,90 +454,170 @@ app.use("/db/userRecord", async (req, res)=>{
 app.post("/db/addUser", async(req, res)=>{
 
     const {params} = req.body
-    let table = params.table
-    let columns = params.columns
-    let values = params.values
+    console.log(params)
+    const tableName = params.tableName
+    console.log(tableName)
 
-    if(table =='users' && columns.includes('pwd')){
-        // columns.pop(columns.findIndex(str=>str=='pwd'))
-        // values.pop(columns.findIndex(str=>str=='pwd'))
+    const formData = params.formData
+    console.log(formData)
+
+    let columns = Object.keys(formData)
+    let values = Object.values(formData)
+
+    console.log(columns)
+    console.log(values)
+
+    if(tableName =='users' && columns.includes('pwd')){
 
         const emailLoc = columns.findIndex(x=>x==='email')
         const email =values[emailLoc].toString()
-        console.log(email)
 
-        let matchResult = ""
+        const pwdIndex = columns.findIndex(str=>str=='pwd')
+        values[pwdIndex]=`crypt('${values[pwdIndex]}',gen_salt('bf'))`
 
-        let errorMessage ={
-            add_user_error: "",
-            get_user_record_error: "",
-        }
+        columns.map((item,index)=>{
+            console.log(`${item}: ${columns[index]}`)
+            columns[index] = `"${item}"`
+          }).toString()
+          console.log(columns)
+        
 
-        // Query 1: Insert the fields
-        if (matchResult !=="true"){
-            columns = columns.toString()
-            values.map((item,index)=>{
-                values[index] = `'${item}'`
-              }).toString()
-                const query2 =`INSERT into ${table} (${columns}) VALUES (${values});`;
+        values.map((item,index)=>{
+            console.log(`${item}: ${values[index]}`)
+            if(item.includes("pwd")){
+                values[index] = item
+            }else{
+                values[index] = (`'${item}'`).replace("'null'","null")
+            }
+          }).toString()
+        console.log(values)
+
+        // Query 1: check if user exists    
+        const query1 =`select "email" from ${tableName} where "email"='${email}' limit 1;`
+        console.log(query1)
+
+        try{
+            const results = await dbQuery(query1);
+            console.log(results)
+            const checkExistingUser = results.rows[0]
+            console.log(checkExistingUser)
+
+            if(checkExistingUser==null){
+
+                console.log("Existing user not found. Adding new user")
+                
+                // Query 2 add new user if it doesn't exist
+                const query2 =`INSERT into ${tableName} (${columns}) VALUES (${values}) returning *;`;
                 console.log(query2)
+
                 try {
-                    const results = await dbQuery(query2);
-                    console.log(results);
-                    const params2={email: email}
-                    try{
-                        const query =`select * from "users" where "email"='${email}' limit 1`
-                        const results = await dbQuery(query);
-                        console.log(results);
-                        res.send(results.rows[0])
-                    }catch(error){
-                        console.log(error)
-                        errorMessage = {...errorMessage,['get_user_record_error']:error}
-                        res.send(errorMessage)
+                    const results2 = await dbQuery(query2);
+                    console.log(results2.rows[0]);
+                    if (results2.rows[0]) {
+                        res.send("User Added"); // Send response if user was successfully added
+                    } else {
+                        res.send("Failed to add user"); // Send response if user was not added
                     }
-                } catch(error){
-                    console.log(error.detail)
-                    errorMessage = {...errorMessage,['add_user_error']:error}
-                    if(error.detail && (error.detail).toString().toLowerCase().search("exists")>0){
-                        res.send("exists")
-                        }
-                    }
+                } catch (error) {
+                    console.log(error);
+                    res.status(500).send("Internal Server Error"); // Send error response
                 }
-        }else{
-            console.log(errorMessage)
-            res.send(errorMessage)
-        }        
+
+            }else{
+                console.log("User exists")
+                res.send("User Exists")
+            }
+        }catch(error){
+            console.log(error)
+            res.send(error)
+        }
+    }else{
+        console.log("Query is not for users table with valid password")
     }
-)
+})
+
+const nodemailer = require('nodemailer');
+const e = require('express');
+app.use('/sendemail', async(req,res)=>{
+    const {params} = req.body
+
+    const to = params.to // This should be an array of addresses ['xyz@gmail.com', "abc@gmail.com"]
+    const cc = params.cc || null // This should be an array of addresses ['xyz@gmail.com', "abc@gmail.com"]
+    const bcc = params.bcc || null // This should be an array of addresses ['xyz@gmail.com', "abc@gmail.com"]
+    const subject = params.subject || "No Subject"
+    const message = params.message || null 
+    const htmlPage = params.htmlPage || null
+    const attachments = params.attachments || null // This should be an array of with file names and path ([filename: "file1.pdf", "documents/pdfFiles/file1.pdf"])
+
+    // Create a Nodemailer transporter
+    const transporter = nodemailer.createTransport({
+        service: 'gmail', // Use the email service you prefer (e.g., 'Gmail', 'SendGrid', etc.)
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: process.env.GMAIL_USER, // Replace with your email address
+            pass: process.env.GMAIL_PASSWORD, // Replace with your email password or an app-specific password
+        },
+    });
+
+    // Email content
+    const mailOptions = {
+        from: {
+            name: "nlightn labs",
+            address: process.env.GMAIL_USER
+        },
+        to: to, // Recipient's email address
+        subject: subject,
+        text: message,
+        html: htmlPage,
+        cc: cc,
+        bcc: bcc,
+        attachments: attachments
+    };
+
+    // Send email
+    transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+        console.error('Error sending email:', error);
+        res.send(false)
+    } else {
+        //console.log('Email sent:', info.response);
+        res.send(true)
+    }
+    });
+})
+
+
+
+
 
 // Edit user record
 app.put("/db/editUser", async(req, res)=>{
 
-    const{params} = req.body
+    const {params} = req.body
     let table = params.table
     let columns = params.columns
     let values = params.values
 
     if(table =='users' && columns.includes('pwd')){
-        columns.pop(columns.findIndex(str=>str=='pwd'))
-        values.pop(columns.findIndex(str=>str=='pwd'))
+        const pwdIndex = columns.findIndex(str=>str=='pwd')
+        values[pwdIndex]=`crypt('${values[pwdIndex]}',gen_salt('bf'))`
 
         const emailLoc = columns.findIndex(x=>x==='email')
         const email =values[emailLoc].toString()
-        console.log(email)
 
         // Query 1: Check if user exists
         const query1 = `select ((select email from "users" where email='${email}')) as matched;`
 
         try {
             const results = await dbQuery(query1);
-            console.log(results);
+            //console.log(results);
             let matchResult = results.rows[0].matched
-            console.log(matchResult)
+            //console.log(matchResult)
             //sends back true if user is found.
             res.send(matchResult)
 
-            
             if (matchResult !=="true"){
                 // Query 2: remove the pwd field and insert all other fields
                 columns = columns.toString()
@@ -371,20 +626,20 @@ app.put("/db/editUser", async(req, res)=>{
                   }).toString()
 
                 const query2 =`INSERT into ${table} (${columns}) VALUES (${values});`;
-                console.log(query2)
+                //console.log(query2)
                 try {
                     const results = await dbQuery(query2);
-                    console.log(results);
+                    //console.log(results);
                     res.status(200).json({
                     status: "success",
                     data: results.rows[0]
                 });  
                 } catch(err){
-                    console.log(err)
+                    //console.log(err)
                 }
             }
         } catch(err){
-            console.log(err)
+            //console.log(err)
             res.err
         }
     }
@@ -396,10 +651,10 @@ const openai = new OpenAI({
 })
 
 //Basic GPT response
-app.post("/gpt", async(req,res)=>{
+app.post("/gpt/ask", async(req,res)=>{
 
-    const {prompt} = req.body;
-    console.log(prompt)
+    const {params} = req.body;
+    //console.log(params)
 
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
@@ -408,22 +663,28 @@ app.post("/gpt", async(req,res)=>{
         const response = await openai.chat.completions.create(
             {
                 model: "gpt-3.5-turbo",
-                messages: [{"role": "user", "content": prompt}],
-                max_tokens: 100,
+                messages: [{"role": "user", "content": params.prompt}],
+                max_tokens: 2000,
                 temperature: 0
             }
         )
-        console.log(response.choices[0].message.content)
+
+        // Set CORS headers to allow any origin
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        
+        //console.log(response.choices[0].message.content)
         res.json(response.choices[0].message.content)
 
     }catch(error){
-        console.log(error);
+        //console.log(error);
     }
 });
 
 
 //GPT classify
-app.get("/gptClassify", async(req,res)=>{
+app.use("/gpt/classify", async(req,res)=>{
 
     const {text, list} = req.body
 
@@ -431,7 +692,7 @@ app.get("/gptClassify", async(req,res)=>{
         apiKey: process.env.OPEN_AI_API_KEY,
     })
 
-    const prompt = `Which one of the following options in this list: ${list}, does an email subject with the following text: ${text}, best describe?. Just respond with the list item text and it's index number in the list in json format.`
+    const prompt = `Which one of the following items in this list: ${list}, does the following text: ${text}, best fit into?. Respond only with the list item text and it's index number in the list in json format.`
     
     try{
         const response = await openai.chat.completions.create(
@@ -441,19 +702,26 @@ app.get("/gptClassify", async(req,res)=>{
                 temperature: 0
             }
         )
-        console.log(response.choices[0].message.content)
+
+        // Set CORS headers to allow any origin
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+
+        //console.log(response.choices[0].message.content)
         res.json(JSON.parse(response.choices[0].message.content))
 
     }catch(error){
-        console.log(error);
+        //console.log(error);
     }
 });
 
 
 // GPT Return List
-app.get("/gptReturnList/:prompt", async(req,res)=>{
+app.get("/gpt/list/:prompt", async(req,res)=>{
 
-    const {promptText} = req.body
+    const {text, list} = req.body
 
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
@@ -471,11 +739,15 @@ app.get("/gptReturnList/:prompt", async(req,res)=>{
             }
         )
 
-        console.log(response)
-        res.json(JSON.parse(response.choices[0].message.content))
+        // Set CORS headers to allow any origin
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+        //console.log(response)
+        res.json(JSON.parse(response.choices[0].message.content))
     }catch(error){
-        console.log(error);
+        //console.log(error);
     }
 });
 
@@ -496,25 +768,197 @@ app.get("/gpt/data/:prompt", async(req,res)=>{
             {
                 model: "gpt-3.5-turbo",
                 messages: [{"role": "user", "content": prompt}],
-                max_tokens: 500,
+                max_tokens: 1000,
                 temperature: 0
             }
         )
 
-        console.log(response)
+        // Set CORS headers to allow any origin
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        //console.log(response)
         res.json(JSON.parse(response.choices[0].message.content))
 
     }catch(error){
-        console.log(error);
+        //console.log(error);
     }
 });
+
+//GPT Image Generation
+app.use("/gpt/image", async(req,res)=>{
+
+    const {params} = req.body;
+    //console.log(params)
+   
+    const openai = new OpenAI({
+        apiKey: process.env.OPEN_AI_API_KEY,
+    })
+
+    try {
+        const image = await openai.images.generate({ 
+            model: "dall-e-3", 
+            prompt: params.prompt,
+            size: "1792x1024"
+        });
+
+        // Set CORS headers to allow any origin
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        //console.log(image.data);
+        res.json(image.data)
+    }catch(error){
+        //console.log(error)
+    }
+})
+
+
+//Basic GPT response
+app.get("/getgpt/:prompt", async(req,res)=>{
+    const prompt = req.params.prompt
+    //console.log(prompt)
+
+    const openai = new OpenAI({
+        apiKey: process.env.OPEN_AI_API_KEY,
+    })
+    try{
+        const response = await openai.chat.completions.create(
+            {
+                model: "gpt-3.5-turbo",
+                messages: [{"role": "user", "content": prompt}],
+                max_tokens: 2000,
+                temperature: 0
+            }
+        )
+        //console.log(response.choices[0].message.content)
+        res.json(response.choices[0].message.content)
+
+    }catch(error){
+        //console.log(error);
+    }
+});
+
+//Basic GPT response
+app.get("/getgptImage/:prompt", async(req,res)=>{
     
+    const prompt = req.params.prompt
+    //console.log(prompt)
+   
+    const openai = new OpenAI({
+        apiKey: process.env.OPEN_AI_API_KEY,
+    })
+
+    try {
+        const image = await openai.images.generate({ 
+            model: "dall-e-3", 
+            prompt: prompt,
+            size: "1792x1024"
+        });
+        //console.log(image.data);
+        res.send(`<img src=${image.data[0].url} alt="gpt image"/>`)
+    }catch(error){
+        //console.log(error)
+    }
+});
+
+const upload = multer({ dest: "uploads/" });
+
+app.use("/openAIWhisper", upload.single("file"), async (req, res) => {
+    console.log(req.file);
+    const audioFile = req.file;
+
+    try {
+        if (!audioFile) {
+          return res.status(400).json({ error: 'No audio file provided' });
+        }
+
+        // Determine file extension based on MIME type
+        let fileExtension = '';
+        switch (audioFile.mimetype) {
+            case 'audio/wav':
+                fileExtension = '.wav';
+                break;
+            case 'audio/mp3':
+                fileExtension = '.mp3';
+                break;
+            // Add more cases as needed for other audio formats
+            default:
+                fileExtension = '.unknown'; // Unknown format
+        }
+
+        // Rename the uploaded file with the correct file extension
+        const audioFilePath = `${audioFile.path}${fileExtension}`;
+        fs.renameSync(audioFile.path, audioFilePath);
+
+        const openai = new OpenAI({
+            apiKey: process.env.OPEN_AI_API_KEY,
+        });
+        
+        // Transcribe audio using OpenAI Whisper
+        const transcription = await openai.audio.transcriptions.create({
+            file: fs.createReadStream(audioFilePath), // Pass the file path to fs.createReadStream
+            model: 'whisper-1',
+        });
+
+        console.log("Transcription:", transcription.text);
+        res.json(transcription); 
+
+        // Delete the audio file
+        if(transcription !="" || transcription!=null) {
+            try {
+                setTimeout(()=>{
+                    fs.unlinkSync(audioFilePath);
+                    console.log('File deleted successfully.');
+                },500)
+              } catch (error) {
+                console.error('Error deleting file:', error);
+              }
+        }
+
+    } catch (error) {
+        console.error('Error transcribing audio:', error);
+        res.status(500).json({ error: 'Error transcribing audio' });
+    }
+});
+
 
 // Upload files into folder in AWS s3
 app.use('/getS3FolderUrl', async (req,res)=>{
-
+    
     const {filePath} = req.body;
-    // console.log(filePath)
+    console.log(filePath)
+
+    // S3 Bucket access
+    const region = "us-west-1"
+    const bucketName = "nlightnlabs01"
+    const accessKeyId = process.env.AWS_S3_ACCESS_KEY
+    const secretAccessKey = process.env.AWS_S3_SECRET_KEY
+  
+    const s3 = new aws.S3({
+      region,
+      accessKeyId,
+      secretAccessKey,
+      signatureVersion: 'v4'
+    })
+
+    async function generateUploadURL(filePath){
+
+          const rawBytes = await randomBytes(16)
+          // const fileName = rawBytes.toString('hex')
+        
+          const params = ({
+              Bucket: bucketName,
+              Key: filePath,
+              Expires: 60
+          })
+      
+          const uploadURL = await s3.getSignedUrlPromise('putObject', params)
+          return uploadURL
+      
+      }
     
     try{
         const url = await generateUploadURL(filePath);
@@ -524,11 +968,347 @@ app.use('/getS3FolderUrl', async (req,res)=>{
         console.log(error)
     }
 })
-    
 
+app.post('/search', async (req, res) => {
+    const {keyword} = req.body
+    console.log(keyword)
+
+    async function searchKeyword(keyword) {
+        
+        try {
+          // Get list of tables
+          const tablesResult = await dbQuery(`
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public' -- Assuming your tables are in the public schema
+              AND table_type = 'BASE TABLE';
+          `);
+      
+          const tables = tablesResult.rows.map(row => row.table_name);
+      
+          let results = [];
+      
+          // Loop through each table
+          for (const table of tables) {
+            // Get list of columns for the current table
+            const columnsResult = await client.query(`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_name = $1;
+            `, [table]);
+      
+            const columns = columnsResult.rows.map(row => row.column_name);
+      
+            // Loop through each column
+            for (const column of columns) {
+              // Search for the keyword in the current column
+              const searchQuery = `
+                SELECT *
+                FROM ${table}
+                WHERE ${column} ILIKE $1;
+              `;
+              const searchResult = await dbQuery(searchQuery, [`%${keyword}%`]);
+      
+              // Add matching records to results
+              results = results.concat(searchResult.rows);
+            }
+          }
+      
+          return results;
+        } catch (error) {
+          console.error('Error searching keyword:', error);
+          throw error;
+        } finally {
+          client.release();
+        }
+      }
+  });
+
+app.post('/searchTable', async (req, res) => {
+    const { keyword } = req.body;
+
+    const query = `
+    SELECT * FROM table1 WHERE column1 ILIKE '%${keyword}%' 
+    UNION
+    SELECT * FROM table2 WHERE column2 ILIKE '%${keyword}%'
+    -- Add more SELECT statements for other tables as needed
+    `
+    try {
+      const result = await dbQuery(query);
+      res.json({ success: true, result: result.rows });
+    } catch (error) {
+      console.error('Error executing search query:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
+
+
+  // Call python script or app
+  app.post('/runPython', async (req, res) => {
+    
+    const { pythonAppName, args } = req.body;
+    const filePath = `../pythonApps/${pythonAppName}.py`
+    console.log("python app file path: ",filePath)
+
+    try {
+        const pythonProcess = spawn('python3', [filePath, ...args]);
+
+        let output = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+            console.error(`stderr: ${data}`);
+        });
+
+        pythonProcess.on('close', (code) => {
+            console.log(`Python process exited with code ${code}`);
+            res.json({ result: output });
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'An error occurred while executing the Python script.' });
+    }
+});
+
+
+// OATH:
+passport.use(new OAuth2Strategy({
+    authorizationURL: 'https://provider.com/oauth2/authorize',
+    tokenURL: 'https://provider.com/oauth2/token',
+    clientID: 'your-client-id',
+    clientSecret: 'your-client-secret',
+    callbackURL: 'http://localhost:3000/callback'
+  }, (accessToken, refreshToken, profile, cb) => {
+    // Verify and process user profile
+    return cb(null, profile);
+  }));
+  
+  // Initialize Passport
+  app.use(passport.initialize());
+  
+  // Define routes
+  app.get('/auth/provider', passport.authenticate('oauth2'));
+  app.get('/callback', passport.authenticate('oauth2', { failureRedirect: '/login' }), (req, res) => {
+    // Successful authentication, redirect to home page or handle as needed
+    res.redirect('/');
+  });
+  
+  // Protected route
+  app.get('/protected', (req, res) => {
+    // Ensure user is authenticated
+    if (req.isAuthenticated()) {
+      res.send('Protected resource');
+    } else {
+      res.redirect('/login');
+    }
+  });
+
+
+
+
+
+// Voice to Text converter
+
+const { SpeechClient } = require('@google-cloud/speech');
+
+
+// Google Cloud Speech client setup
+const speechClient = new SpeechClient();
+
+app.post('/api/convertAudioToText', upload.single('audio'), async (req, res) => {
+    try {
+      const [response] = await speechClient.recognize({
+        audio: {
+          content: req.file,
+        },
+        config: {
+          encoding: 'LINEAR16',
+          sampleRateHertz: 16000,
+          languageCode: 'en-US',
+        },
+      });
+  
+      const transcription = response.results
+        .map(result => result.alternatives[0].transcript)
+        .join('\n');
+
+      console.log(transcription)
+
+      res.json({ transcription });
+    } catch (error) {
+      console.error('Error converting audio to text:', error);
+      res.status(500).json({ error: 'Failed to convert audio to text' });
+    }
+  });
+
+
+// Free agent webook
+app.post('/freeAgent/webhook', async(req,res)=>{
+
+    const {params} = req.body
+    const webhookURL = params.webhookURL
+    const formData = params.formData
+
+    //console.log(webhookURL)
+    //console.log(formData)
+
+    const options = {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(formData),
+    }
+    
+    try{
+        const send = await fetch(webhookURL, options)
+        if(send.ok){
+            //console.log("success!")
+            res.send("ok")
+          }
+    }catch(error){
+        //console.log(error)
+    }   
+});
+
+//General Query To FreeAgent
+app.post('/freeAgent/query', async (req, res) => {
+    const query =req.body
+    console.log(query)
+
+    // query needs to look like this.... {
+    //     query: 'query{listEntityValues(entity: "icon", limit: 2){ entity_values {id, field_values} } }'
+    //   }
+
+    try {
+        const fetchAccessToken = async () => {
+            try {
+              const response = await fetch('https://freeagent.network/oauth/token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  grant_type: 'client_credentials',
+                  client_id: '5b92a981-fd45-4fe5-a581-085842402ab2', // Your client ID
+                  client_secret: 'fa-secret-C745FCC3DB2E5C73828910' // Your client secret
+                })
+              });
+          
+              if (!response.ok) {
+                throw new Error('Failed to fetch access token');
+              }
+          
+              const data = await response.json();
+              console.log("access token: ", data)
+              return data.access_token;
+            } catch (error) {
+              console.error('Error fetching access token from FreeAgent:', error);
+              throw error;
+            }
+          };
+
+          const fetchData = async(query, accessToken)=>{
+            
+            console.log("access token: ", accessToken)
+            console.log("query: ", query)
+    
+            const url = 'https://freeagent.network/api/graphql';
+            axios.post(url, JSON.stringify(query), {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => {
+                console.log("data fetched from FreeAgent successfully: ",response.data.data);
+                res.send(response.data.data); // Send the response back to the client
+            })
+            .catch(error => {
+                console.error('Error with FreeAgent api request:', error);
+            }); 
+          }
+        fetchData(query, await fetchAccessToken())
+  
+    } catch (error) {
+      console.error('Error fetching data from FeeAgent:', error);
+      res.status(500).json({ error: 'Error fetching data' }); // Send an error response
+    }
+});
+
+
+//General Query To FreeAgent
+app.post('/freeAgent/test', async (req, res) => {
+
+    const query = {query: 'query{getTeamMembers(active: true) {agents {id, full_name, teamId, email_address, access_level, status, job_title, roles {id, name, import, export, bulk_edit, bulk_delete, task_delete, is_admin}, subteams {id, name, description}}}}'}
+    console.log(query)
+
+    try {
+        const fetchAccessToken = async () => {
+            try {
+              const response = await fetch('https://freeagent.network/oauth/token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  grant_type: 'client_credentials',
+                  client_id: '5b92a981-fd45-4fe5-a581-085842402ab2', // Your client ID
+                  client_secret: 'fa-secret-C745FCC3DB2E5C73828910' // Your client secret
+                })
+              });
+          
+              if (!response.ok) {
+                throw new Error('Failed to fetch access token');
+              }
+          
+              const data = await response.json();
+              console.log("access token: ", data)
+              return data.access_token;
+            } catch (error) {
+              console.error('Error fetching access token from FreeAgent:', error);
+              throw error;
+            }
+          };
+
+          const fetchData = async(query, accessToken)=>{
+            
+            console.log("access token: ", accessToken)
+            console.log("query: ", query)
+    
+            const url = 'https://freeagent.network/api/graphql';
+            axios.post(url, JSON.stringify(query), {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => {
+                console.log("data fetched from FreeAgent successfully: ",response.data.data.getTeamMembers.agents);
+                res.send(response.data.data); // Send the response back to the client
+            })
+            .catch(error => {
+                console.error('Error with FreeAgent api request:', error);
+            }); 
+          }
+        fetchData(query, await fetchAccessToken())
+  
+    } catch (error) {
+      console.error('Error fetching data from FeeAgent:', error);
+      res.status(500).json({ error: 'Error fetching data' }); // Send an error response
+    }
+});
+
+// testfunc()
+
+  
+
+      
 //setup port for server
 const port = process.env.PORT || 3001;
-app.listen(port, ()=>{
-    console.log(`Server is running and listening on port ${port}`);
-});
+app.listen(port, ()=>{console.log(`Server is running and listening on port ${port}`);});
 

@@ -24,10 +24,10 @@ CREATE TABLE users (
     password_hash VARCHAR(100) NOT NULL
 );
 
-ALTER TABLE
+ALTER TABLE users
 ADD COLUMN created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 ADD COLUMN pwd VARCHAR(255),
-CONSTRAINT email_unique UNIQUE (email);
+ADD CONSTRAINT email_unique UNIQUE (email);
 
 -- Create a Function for Password Hashing
 CREATE OR REPLACE FUNCTION hash_password(password TEXT)
