@@ -654,7 +654,7 @@ const openai = new OpenAI({
 app.post("/gpt/ask", async(req,res)=>{
 
     const {params} = req.body;
-    //console.log(params)
+    console.log(params)
 
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
@@ -692,7 +692,7 @@ app.use("/gpt/classify", async(req,res)=>{
         apiKey: process.env.OPEN_AI_API_KEY,
     })
 
-    const prompt = `Which one of the following items in this list: ${list}, does the following text: ${text}, best fit into?. Respond only with the list item text and it's index number in the list in json format.`
+    const prompt = `Which one of the following items in this list: ${list}, does the following text: ${text}, best fit into?. Respond only with the list item text and it's index number in the list in json format as follows: {index, text}.`
     
     try{
         const response = await openai.chat.completions.create(
@@ -708,8 +708,7 @@ app.use("/gpt/classify", async(req,res)=>{
         res.setHeader('Access-Control-Allow-Methods', 'POST');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-
-        //console.log(response.choices[0].message.content)
+        console.log(response.choices[0].message.content)
         res.json(JSON.parse(response.choices[0].message.content))
 
     }catch(error){
