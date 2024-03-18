@@ -639,7 +639,7 @@ app.put("/nlightn/db/editUser", async(req, res)=>{
                 }
             }
         } catch(err){
-            //console.log(err)
+            console.log(err)
             res.err
         }
     }
@@ -653,8 +653,10 @@ const openai = new OpenAI({
 //Basic GPT response
 app.post("/openai/gpt/ask", async(req,res)=>{
 
-    const {params} = req.body;
-    console.log(params)
+    console.log(req.body)
+
+    const {prompt} = req.body;
+    console.log(prompt)
 
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
@@ -663,7 +665,7 @@ app.post("/openai/gpt/ask", async(req,res)=>{
         const response = await openai.chat.completions.create(
             {
                 model: "gpt-3.5-turbo",
-                messages: [{"role": "user", "content": params.prompt}],
+                messages: [{"role": "user", "content": prompt}],
                 max_tokens: 2000,
                 temperature: 0
             }
@@ -674,11 +676,12 @@ app.post("/openai/gpt/ask", async(req,res)=>{
         res.setHeader('Access-Control-Allow-Methods', 'POST');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
         
-        //console.log(response.choices[0].message.content)
+        console.log(response.choices[0].message.content)
         res.json(response.choices[0].message.content)
+        
 
     }catch(error){
-        //console.log(error);
+        console.log(error);
     }
 });
 
@@ -712,7 +715,7 @@ app.use("/openai/gpt/classify", async(req,res)=>{
         res.json(JSON.parse(response.choices[0].message.content))
 
     }catch(error){
-        //console.log(error);
+        console.log(error);
     }
 });
 
@@ -720,7 +723,8 @@ app.use("/openai/gpt/classify", async(req,res)=>{
 // GPT Return List
 app.get("/openai/gpt/list/:prompt", async(req,res)=>{
 
-    const {text, list} = req.body
+    const promptText= req.params.prompt
+    console.log(prompt)
 
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
@@ -743,10 +747,10 @@ app.get("/openai/gpt/list/:prompt", async(req,res)=>{
         res.setHeader('Access-Control-Allow-Methods', 'POST');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-        //console.log(response)
+        console.log(response)
         res.json(JSON.parse(response.choices[0].message.content))
     }catch(error){
-        //console.log(error);
+        console.log(error);
     }
 });
 
@@ -788,8 +792,8 @@ app.get("/openai/gpt/data/:prompt", async(req,res)=>{
 //GPT Image Generation
 app.use("/openai/dalle/image", async(req,res)=>{
 
-    const {params} = req.body;
-    //console.log(params)
+    const {prompt} = req.body;
+    console.log(prompt)
    
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
@@ -798,7 +802,7 @@ app.use("/openai/dalle/image", async(req,res)=>{
     try {
         const image = await openai.images.generate({ 
             model: "dall-e-3", 
-            prompt: params.prompt,
+            prompt: prompt,
             size: "1792x1024"
         });
 
@@ -815,56 +819,8 @@ app.use("/openai/dalle/image", async(req,res)=>{
 })
 
 
-//Basic GPT response
-app.get("/openai/gpt/getgpt/:prompt", async(req,res)=>{
-    const prompt = req.params.prompt
-    //console.log(prompt)
-
-    const openai = new OpenAI({
-        apiKey: process.env.OPEN_AI_API_KEY,
-    })
-    try{
-        const response = await openai.chat.completions.create(
-            {
-                model: "gpt-3.5-turbo",
-                messages: [{"role": "user", "content": prompt}],
-                max_tokens: 2000,
-                temperature: 0
-            }
-        )
-        //console.log(response.choices[0].message.content)
-        res.json(response.choices[0].message.content)
-
-    }catch(error){
-        //console.log(error);
-    }
-});
-
-//Basic GPT response
-app.get("/getgptImage/:prompt", async(req,res)=>{
-    
-    const prompt = req.params.prompt
-    //console.log(prompt)
-   
-    const openai = new OpenAI({
-        apiKey: process.env.OPEN_AI_API_KEY,
-    })
-
-    try {
-        const image = await openai.images.generate({ 
-            model: "dall-e-3", 
-            prompt: prompt,
-            size: "1792x1024"
-        });
-        //console.log(image.data);
-        res.send(`<img src=${image.data[0].url} alt="gpt image"/>`)
-    }catch(error){
-        //console.log(error)
-    }
-});
 
 const upload = multer({ dest: "uploads/" });
-
 app.use("/openai/whisper", upload.single("file"), async (req, res) => {
     console.log(req.file);
     const audioFile = req.file;
