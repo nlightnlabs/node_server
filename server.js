@@ -84,7 +84,7 @@ const dbQuery=(text, params) =>pool.query(text, params);
 
 
 //general database query
-app.use("/db/query", async (req, res)=>{
+app.use("/nlightn/db/query", async (req, res)=>{
     
     //console.log(req.body)
     const {query} = req.body
@@ -99,7 +99,7 @@ app.use("/db/query", async (req, res)=>{
     }
 })
 
-app.post("/db/addRecord",async (req, res)=>{
+app.post("/nlightn/db/addRecord",async (req, res)=>{
         // console.log(req)
         const {tableName, formData} = req.body
 
@@ -143,7 +143,7 @@ app.post("/db/addRecord",async (req, res)=>{
     }
 })
 
-app.post("/db/updateRecord",async (req, res)=>{
+app.post("/nlightn/db/updateRecord",async (req, res)=>{
     
     const {tableName, idField,recordId, formData} = req.body
     //console.log(formData)
@@ -178,7 +178,7 @@ app.post("/db/updateRecord",async (req, res)=>{
     }
 })
 
-app.post("/db/getRecord",async (req, res)=>{
+app.post("/nlightn/db/getRecord",async (req, res)=>{
 
     const {params} = req.body
     const tableName = params.tableName
@@ -196,7 +196,7 @@ app.post("/db/getRecord",async (req, res)=>{
     }
 })
 
-app.post("/db/getRecords",async (req, res)=>{
+app.post("/nlightn/db/getRecords",async (req, res)=>{
 
     const {params} = req.body
     const tableName = params.tableName
@@ -215,7 +215,7 @@ app.post("/db/getRecords",async (req, res)=>{
 
 
 //Delete Record
-app.post("/db/deleteRecord", async (req,res)=>{
+app.post("/nlightn/db/deleteRecord", async (req,res)=>{
 
     const {params} = req.body
     const tableName = params.tableName
@@ -231,7 +231,7 @@ app.post("/db/deleteRecord", async (req,res)=>{
 })
 
 //database query to get a table
-app.get("/db/table/:table", async (req, res)=>{
+app.get("/nlightn/db/table/:table", async (req, res)=>{
 
     const table = req.params.table;
 
@@ -252,7 +252,7 @@ app.get("/db/table/:table", async (req, res)=>{
 })
 
 //database query to get a table
-app.post("/data", async (req, res)=>{
+app.post("db/data", async (req, res)=>{
 
     const tableName = "users";
 
@@ -276,7 +276,7 @@ app.post("/data", async (req, res)=>{
 
 
 //database query to get a list from a table
-app.get("/db/list/:table/:field", async (req, res)=>{
+app.get("/nlightn/db/list/:table/:field", async (req, res)=>{
     const {table, field} = req.params
     try{
         const result = await dbQuery(`SELECT DISTINCT "${field}" from ${table};`)
@@ -293,7 +293,7 @@ app.get("/db/list/:table/:field", async (req, res)=>{
 })
 
 //database query to get a sublist from a table
-app.get("/db/subList/:table/:field/:conditionalField/:conditionalValue", async (req, res)=>{
+app.get("/nlightn/db/subList/:table/:field/:conditionalField/:conditionalValue", async (req, res)=>{
 
     const table = req.params.table;
     const field = req.params.field;
@@ -320,7 +320,7 @@ app.get("/db/subList/:table/:field/:conditionalField/:conditionalValue", async (
 
 
 //database query to get a record from a table
-app.get("/db/records/:table/:conditionalField/:conditionalValue", async (req, res)=>{
+app.get("/nlightn/db/records/:table/:conditionalField/:conditionalValue", async (req, res)=>{
 
     const table = req.params.table;
     const conditionalField = req.params.conditionalField;
@@ -336,7 +336,7 @@ app.get("/db/records/:table/:conditionalField/:conditionalValue", async (req, re
     
 
 //database query to get a single value from a table
-app.get("/db/value/:table/:lookupField/:conditionalField/:conditionalValue", async (req, res)=>{
+app.get("/nlightn/db/value/:table/:lookupField/:conditionalField/:conditionalValue", async (req, res)=>{
     
     const table = req.params.table;
     const lookupField = req.params.lookupField;
@@ -353,7 +353,7 @@ app.get("/db/value/:table/:lookupField/:conditionalField/:conditionalValue", asy
 })
 
 // Filter Table
-app.post("/db/filterTable",async (req, res)=>{
+app.post("/nlightn/db/filterTable",async (req, res)=>{
     
     const {params} = req.body
 
@@ -411,7 +411,7 @@ app.post("/db/filterTable",async (req, res)=>{
 
 
 // Authenticate user
-app.use("/db/authenticateUser", async (req,res)=>{
+app.use("/nlightn/db/authenticateUser", async (req,res)=>{
 
     const params = req.body.params
     const email = params.email
@@ -437,7 +437,7 @@ app.use("/db/authenticateUser", async (req,res)=>{
 
 
 //get user record
-app.use("/db/userRecord", async (req, res)=>{
+app.use("/nlightn/db/userRecord", async (req, res)=>{
     const {params} = req.body
     const email = params.email
     const query =`select * from "users" where "email"='${email}' limit 1`
@@ -451,7 +451,7 @@ app.use("/db/userRecord", async (req, res)=>{
 })
 
 //add user record
-app.post("/db/addUser", async(req, res)=>{
+app.post("/nlightn/db/addUser", async(req, res)=>{
 
     const {params} = req.body
     console.log(params)
@@ -538,7 +538,7 @@ app.post("/db/addUser", async(req, res)=>{
 
 const nodemailer = require('nodemailer');
 const e = require('express');
-app.use('/sendemail', async(req,res)=>{
+app.use('/nlightn/sendemail', async(req,res)=>{
     const {params} = req.body
 
     const to = params.to // This should be an array of addresses ['xyz@gmail.com', "abc@gmail.com"]
@@ -593,7 +593,7 @@ app.use('/sendemail', async(req,res)=>{
 
 
 // Edit user record
-app.put("/db/editUser", async(req, res)=>{
+app.put("/nlightn/db/editUser", async(req, res)=>{
 
     const {params} = req.body
     let table = params.table
@@ -651,7 +651,7 @@ const openai = new OpenAI({
 })
 
 //Basic GPT response
-app.post("/gpt/ask", async(req,res)=>{
+app.post("/openai/gpt/ask", async(req,res)=>{
 
     const {params} = req.body;
     console.log(params)
@@ -684,7 +684,7 @@ app.post("/gpt/ask", async(req,res)=>{
 
 
 //GPT classify
-app.use("/gpt/classify", async(req,res)=>{
+app.use("/openai/gpt/classify", async(req,res)=>{
 
     const {text, list} = req.body
 
@@ -718,7 +718,7 @@ app.use("/gpt/classify", async(req,res)=>{
 
 
 // GPT Return List
-app.get("/gpt/list/:prompt", async(req,res)=>{
+app.get("/openai/gpt/list/:prompt", async(req,res)=>{
 
     const {text, list} = req.body
 
@@ -752,7 +752,7 @@ app.get("/gpt/list/:prompt", async(req,res)=>{
 
 
 //GPT Return Data
-app.get("/gpt/data/:prompt", async(req,res)=>{
+app.get("/openai/gpt/data/:prompt", async(req,res)=>{
 
     const {promptText} = req.body
 
@@ -786,7 +786,7 @@ app.get("/gpt/data/:prompt", async(req,res)=>{
 });
 
 //GPT Image Generation
-app.use("/gpt/image", async(req,res)=>{
+app.use("/openai/dalle/image", async(req,res)=>{
 
     const {params} = req.body;
     //console.log(params)
@@ -816,7 +816,7 @@ app.use("/gpt/image", async(req,res)=>{
 
 
 //Basic GPT response
-app.get("/getgpt/:prompt", async(req,res)=>{
+app.get("/openai/gpt/getgpt/:prompt", async(req,res)=>{
     const prompt = req.params.prompt
     //console.log(prompt)
 
@@ -865,7 +865,7 @@ app.get("/getgptImage/:prompt", async(req,res)=>{
 
 const upload = multer({ dest: "uploads/" });
 
-app.use("/openAIWhisper", upload.single("file"), async (req, res) => {
+app.use("/openai/whisper", upload.single("file"), async (req, res) => {
     console.log(req.file);
     const audioFile = req.file;
 
@@ -925,7 +925,7 @@ app.use("/openAIWhisper", upload.single("file"), async (req, res) => {
 
 
 // Upload files into folder in AWS s3
-app.use('/getS3FolderUrl', async (req,res)=>{
+app.use('/aws/getS3FolderUrl', async (req,res)=>{
     
     const {filePath} = req.body;
     console.log(filePath)
@@ -968,7 +968,7 @@ app.use('/getS3FolderUrl', async (req,res)=>{
     }
 })
 
-app.post('/search', async (req, res) => {
+app.post('/nlightn/search', async (req, res) => {
     const {keyword} = req.body
     console.log(keyword)
 
@@ -1023,7 +1023,7 @@ app.post('/search', async (req, res) => {
       }
   });
 
-app.post('/searchTable', async (req, res) => {
+app.post('/nlightn/searchTable', async (req, res) => {
     const { keyword } = req.body;
 
     const query = `
@@ -1044,7 +1044,7 @@ app.post('/searchTable', async (req, res) => {
 
 
   // Call python script or app
-  app.post('/runPython', async (req, res) => {
+  app.post('/nlightn/runPython', async (req, res) => {
     
     const { pythonAppName, args } = req.body;
     const filePath = `../pythonApps/${pythonAppName}.py`
@@ -1118,7 +1118,7 @@ const { SpeechClient } = require('@google-cloud/speech');
 // Google Cloud Speech client setup
 const speechClient = new SpeechClient();
 
-app.post('/api/convertAudioToText', upload.single('audio'), async (req, res) => {
+app.post('/nlightn/api/convertAudioToText', upload.single('audio'), async (req, res) => {
     try {
       const [response] = await speechClient.recognize({
         audio: {
