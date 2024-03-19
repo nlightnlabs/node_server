@@ -687,6 +687,8 @@ app.post("/openai/gpt/ask", async(req,res)=>{
 app.use("/openai/gpt/classify", async(req,res)=>{
 
     const {text, list} = req.body
+    console.log("text",text)
+    console.log("list",list)
 
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
