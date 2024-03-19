@@ -692,7 +692,7 @@ app.use("/openai/gpt/classify", async(req,res)=>{
         apiKey: process.env.OPEN_AI_API_KEY,
     })
 
-    const prompt = `Which one of the following items in this list: ${list}, does the following text: ${text}, best fit into?. Respond only with the list item text and it's index number in the list in json format as follows: {index, list_item_text}.`
+    const prompt = `Which one of the following items in this list: ${list}, does ${text} best fit into?. Respone only with the name of the item in the list.`
     
     try{
         const response = await openai.chat.completions.create(
