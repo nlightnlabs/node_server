@@ -198,10 +198,7 @@ app.post("/nlightn/db/getRecord",async (req, res)=>{
 
 app.post("/nlightn/db/getRecords",async (req, res)=>{
 
-    const {params} = req.body
-    const tableName = params.tableName
-    const conditionalField = params.conditionalField
-    const condition = params.condition
+    const {tableName,conditionalField,condition} = req.body
 
     const query =`Select * from ${tableName} where "${conditionalField}"='${condition}';`;
     //console.log(query)
@@ -695,7 +692,7 @@ app.use("/openai/gpt/classify", async(req,res)=>{
         apiKey: process.env.OPEN_AI_API_KEY,
     })
 
-    const prompt = `Which one of the following items in this list: ${list}, does the following text: ${text}, best fit into?. Respond only with the list item text and it's index number in the list in json format as follows: {index, text}.`
+    const prompt = `Which one of the following items in this list: ${list}, does the following text: ${text}, best fit into?. Respond only with the list item text and it's index number in the list in json format as follows: {index, list_item_text}.`
     
     try{
         const response = await openai.chat.completions.create(
