@@ -86,13 +86,13 @@ const dbQuery=(text, params) =>pool.query(text, params);
 //general database query
 app.use("/nlightn/db/query", async (req, res)=>{
     
-    //console.log(req.body)
     const {query} = req.body
     
     try{
         const result = await dbQuery(query);
         res.json(result.rows);
-        //console.log(result.rows)
+        console.log(result.rows)
+        
     } catch(err){
         res.send(err)
         //console.log(err)
@@ -180,19 +180,16 @@ app.post("/nlightn/db/updateRecord",async (req, res)=>{
 
 app.post("/nlightn/db/getRecord",async (req, res)=>{
 
-    const {params} = req.body
-    const tableName = params.tableName
-    const recordId = params.recordId
-    const idField = params.idField
+    const {tableName,conditionalField,condition} = req.body
 
-    const query =`Select * from ${tableName} where "${idField}"='${recordId}';`;
-    //console.log(query)
+    const query =`Select * from ${tableName} where "${conditionalField}"='${condition}' limit '1';`;
+    console.log(query)
     try{
         const result = await dbQuery(query);
-        //console.log(result)
+        console.log(result)
         res.json(result.rows[0]);
     } catch(err){
-        //console.log(err)
+        // console.log(err)
     }
 })
 
@@ -686,7 +683,8 @@ app.post("/openai/gpt/ask", async(req,res)=>{
 //GPT classify
 app.use("/openai/gpt/classify", async(req,res)=>{
 
-    const {text, list} = req.body
+    const text = req.body.text;
+    const list = JSON.parse(req.body.list);
     console.log("text",text)
     console.log("list",list)
 
@@ -694,7 +692,7 @@ app.use("/openai/gpt/classify", async(req,res)=>{
         apiKey: process.env.OPEN_AI_API_KEY,
     })
 
-    const prompt = `Which one of the following items in this list: ${list}, does ${text} best fit into?. Respone only with the name of the item in the list.`
+    const prompt = `Which one of the following items in this list: ${list}, does ${text} best fit into?. Respond only with the exact name of the item in the list.`
     
     try{
         const response = await openai.chat.completions.create(
@@ -711,7 +709,7 @@ app.use("/openai/gpt/classify", async(req,res)=>{
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
         console.log(response.choices[0].message.content)
-        res.json(JSON.parse(response.choices[0].message.content))
+        res.json(response.choices[0].message.content)
 
     }catch(error){
         console.log(error);
