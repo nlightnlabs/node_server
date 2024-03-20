@@ -87,15 +87,16 @@ const dbQuery=(text, params) =>pool.query(text, params);
 app.use("/nlightn/db/query", async (req, res)=>{
     
     const {query} = req.body
+    console.log(query)
     
     try{
         const result = await dbQuery(query);
         res.json(result.rows);
         console.log(result.rows)
-        
+
     } catch(err){
         res.send(err)
-        //console.log(err)
+        console.log(err)
     }
 })
 
