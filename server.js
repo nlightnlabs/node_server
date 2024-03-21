@@ -87,7 +87,6 @@ const dbQuery=(text, params) =>pool.query(text, params);
 app.use("/nlightn/db/query", async (req, res)=>{
     
     const {query} = req.body
-    console.log(query)
     
     try{
         const result = await dbQuery(query);
@@ -685,7 +684,7 @@ app.post("/openai/gpt/ask", async(req,res)=>{
 app.use("/openai/gpt/classify", async(req,res)=>{
 
     const text = req.body.text;
-    const list = JSON.parse(req.body.list);
+    const list = req.body.list;
     console.log("text",text)
     console.log("list",list)
 
