@@ -55,8 +55,6 @@ const OpenAI = require('openai')
 const { engine } = require('express-handlebars');
 
 
-
-
 //Handlebars Middleware
 app.engine('handlebars', engine({defaultLayout: 'main'}));
 app.set('view engine', 'handlebars');
@@ -995,36 +993,58 @@ app.post('/nlightn/searchTable', async (req, res) => {
   });
 
 
-
   // Call python script or app
   app.post('/nlightn/runPython', async (req, res) => {
-    
-    const { pythonAppName, args } = req.body;
-    const filePath = `../pythonApps/${pythonAppName}.py`
-    console.log("python app file path: ",filePath)
-
-    try {
-        const pythonProcess = spawn('python3', [filePath, ...args]);
-
-        let output = '';
-
-        pythonProcess.stdout.on('data', (data) => {
-            output += data.toString();
-        });
-
-        pythonProcess.stderr.on('data', (data) => {
-            console.error(`stderr: ${data}`);
-        });
-
-        pythonProcess.on('close', (code) => {
-            console.log(`Python process exited with code ${code}`);
-            res.json({ result: output });
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'An error occurred while executing the Python script.' });
-    }
-});
+     
+      const { pythonAppName, args } = req.body;
+  
+      const filePath = `${pythonAppName}.py`
+      console.log("python app file path: ", filePath);
+  
+      const pythonProcess = spawn('python3', [filePath], {
+          maxBuffer: 1024 * 1024 * 10, // 10 MB buffer size (adjust as needed)
+      });
+  
+      // Send the JSON object as a string to the Python script
+      pythonProcess.stdin.write(JSON.stringify(args));
+      pythonProcess.stdin.end();
+  
+      let output = '';
+  
+      // Read the output stream from the Python process
+      pythonProcess.stdout.on('data', (data) => {
+          output += data.toString();
+      });
+  
+      // Handle stderr if needed
+      pythonProcess.stderr.on('data', (data) => {
+          console.error(`stderr: ${data}`);
+      });
+  
+      // Handle process close event
+      pythonProcess.on('close', (code) => {
+          console.log('Python process closed with code:', code); // Debugging
+          if (code !== 0) {
+              console.error(`Python process exited with non-zero code: ${code}`);
+              // Handle error response
+              res.status(500).json({ error: 'An error occurred while executing the Python script.' });
+          } else {
+              try {
+                  console.log('Python process output:', output); // Debugging
+                  const result = JSON.parse(output);
+                  console.log('Python function result:', result);
+                  // Handle success response
+                  res.json(result);
+              } catch (error) {
+                  console.error('Error parsing JSON output:', error);
+                  // Handle parsing error
+                  res.status(500).json({ error: 'Error parsing JSON output.' });
+              }
+          }
+      });
+  
+  });
+  
 
 
 // OATH:
