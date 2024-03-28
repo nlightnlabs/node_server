@@ -1042,10 +1042,8 @@ app.post('/nlightn/searchTable', async (req, res) => {
               }
           }
       });
-  
   });
   
-
 
 // OATH:
 passport.use(new OAuth2Strategy({
