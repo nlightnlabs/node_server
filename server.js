@@ -52,8 +52,14 @@ const multer = require('multer');
 
 
 const OpenAI = require('openai')
-const { engine } = require('express-handlebars');
 
+const openai = new OpenAI({
+    apiKey: process.env.OPEN_AI_API_KEY,
+})
+
+
+
+const { engine } = require('express-handlebars');
 
 //Handlebars Middleware
 app.engine('handlebars', engine({defaultLayout: 'main'}));
@@ -638,9 +644,9 @@ app.put("/nlightn/db/editUser", async(req, res)=>{
 })
 
 
-const openai = new OpenAI({
-    apiKey: "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",
-})
+
+
+
 
 //Basic GPT response
 app.post("/openai/gpt/ask", async(req,res)=>{
@@ -653,6 +659,8 @@ app.post("/openai/gpt/ask", async(req,res)=>{
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
     })
+    console.log(process.env.OPEN_AI_API_KEY)
+
     try{
         const response = await openai.chat.completions.create(
             {
