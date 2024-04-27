@@ -2,24 +2,24 @@
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
+// Import Express and create express app
+const express = require('express');
+const app = express();
+
+const cors = require("cors");
+app.use(cors());
+app.options('*', cors());
+
 //Import environment evariables
 const dotenv = require('dotenv')
 dotenv.config();
 console.log(process.env.NODE_ENV)
-
 
 //Create path functions
 import path from 'path';
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
-
-// Import Express and create express app
-const express = require('express');
-const app = express();
-
-const cors = require("cors");
-
 
 
 //Body parser middleware (for sending back data in html)
@@ -28,8 +28,7 @@ app.use(bodyParser.json({limit: '50mb'}));
 app.use(bodyParser.urlencoded({limit: '100mb', extended: true}));
 app.use(express.json());
 app.use(bodyParser.json());
-app.use(cors());
-app.options('*', cors());
+
 
 const { spawn } = require('child_process');
 const axios = require('axios');
