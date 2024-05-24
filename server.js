@@ -90,6 +90,10 @@ const dbQuery=(text, params) =>pool.query(text, params);
 app.use("/nlightn/db/query", async (req, res)=>{
     
     const {query} = req.body
+    const dbName = req.body.dbName || process.env.PGDATABASE
+
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
     
     try{
         const result = await dbQuery(query);
@@ -228,9 +232,13 @@ app.post("/nlightn/db/deleteRecord", async (req,res)=>{
 })
 
 //database query to get a table
-app.get("/nlightn/db/table/:table", async (req, res)=>{
+app.get("/nlightn/db/table/:table/:dbName?", async (req, res)=>{
 
     const table = req.params.table;
+    const dbName = req.params.dbName || process.env.PGDATABASE;
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    
+    const dbQuery=(text, params) =>newpool.query(text, params);
 
     try{
         const result1 = await dbQuery(`SELECT * from ${table};`);
@@ -409,26 +417,26 @@ app.post("/nlightn/db/filterTable",async (req, res)=>{
 
 // Authenticate user
 app.use("/nlightn/db/authenticateUser", async (req,res)=>{
-
+    
     const params = req.body.params
     const email = params.email
     const pwd = params.pwd
 
     const query = `select ((select pwd from "users" where email='${email}') =crypt('${pwd}',(select pwd from "users" where email='${email}'))) as matched;`
 
-    //console.log(query);
+    // console.log(query);
 
       try{    
         const result = await dbQuery(query);
-        //console.log(result)
+        // console.log(result)
         let matchResult = result.rows[0].matched
         if(matchResult !==true){
             matchResult = false
         }
-        //console.log(matchResult)
+        // console.log(matchResult)
         res.send(matchResult)
     } catch(err){
-        //console.log(err)
+        console.log(err)
     }
 })
 
@@ -882,24 +890,24 @@ app.use("/openai/whisper", upload.single("file"), async (req, res) => {
 });
 
 
+// AWS S3  access
+const region = "us-west-1"
+const accessKeyId = process.env.AWS_S3_ACCESS_KEY
+const secretAccessKey = process.env.AWS_S3_SECRET_KEY
+const s3 = new aws.S3({
+    region,
+    accessKeyId,
+    secretAccessKey,
+    signatureVersion: 'v4'
+  })
+
 // Upload files into folder in AWS s3
 app.use('/aws/getS3FolderUrl', async (req,res)=>{
     
     const {filePath} = req.body;
     console.log(filePath)
-
-    // S3 Bucket access
-    const region = "us-west-1"
+    
     const bucketName = "nlightnlabs01"
-    const accessKeyId = process.env.AWS_S3_ACCESS_KEY
-    const secretAccessKey = process.env.AWS_S3_SECRET_KEY
-  
-    const s3 = new aws.S3({
-      region,
-      accessKeyId,
-      secretAccessKey,
-      signatureVersion: 'v4'
-    })
 
     async function generateUploadURL(filePath){
 
@@ -925,6 +933,76 @@ app.use('/aws/getS3FolderUrl', async (req,res)=>{
         console.log(error)
     }
 })
+
+
+
+
+//Get files from AWS S3
+app.use('/aws/getFiles', async (req, res) => {
+
+    try {
+        const {bucketName, path} = req.body;
+    
+        const params = {
+          Bucket: bucketName,
+          Delimiter: '/',
+          Prefix: path + '/'
+        };
+
+        console.log("params",params)
+    
+        const data = await s3.listObjects(params).promise();
+        console.log("data",data)
+        
+        let files = []
+        await Promise.all(
+            (data.Contents).map(item=>{
+                const key = item.Key
+                const fileData = s3.getObject({ Bucket: bucketName, Key: key }).promise();
+                const metadata = s3.headObject({ Bucket: bucketName, Key: key }).promise();
+                const fileUrl = s3.getSignedUrl('getObject', { Bucket: bucketName, Key: key });
+                files.push({
+                    file: item,
+                    url: fileUrl,
+                    file_data: fileData,
+                    meta_data: metadata
+                })
+          }))
+          console.log("files",files)
+          res.json(files);
+      } catch (err) {
+        console.error(err);
+        res.json([])
+      }
+  });
+
+
+
+// Upload files into folder in AWS s3
+app.use('/aws/deleteFile', async (req, res) => {
+    console.log("Deleting file...");
+
+    const { Bucket, Key } = req.body;
+    console.log(Bucket, Key);
+
+    try {
+        const params = {
+            Bucket: Bucket,
+            Key: Key
+        };
+
+        // Wait for the deleteObject operation to complete
+        const response = await s3.deleteObject(params).promise();
+        console.log("Response:", response);
+
+        res.json(response);
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send('Error deleting file from S3');
+    }
+});
+
+
 
 app.post('/nlightn/search', async (req, res) => {
     const {keyword} = req.body
@@ -1280,7 +1358,64 @@ app.post('/freeAgent/test', async (req, res) => {
     }
 });
 
-// testfunc()
+const testFunc = async (req,res)=>{
+    const query = {query: 'query{getTeamMembers(active: true) {agents {id, full_name, teamId, email_address, access_level, status, job_title, roles {id, name, import, export, bulk_edit, bulk_delete, task_delete, is_admin}, subteams {id, name, description}}}}'}
+    console.log(query)
+
+    try {
+        const fetchAccessToken = async () => {
+            try {
+              const response = await fetch('https://freeagent.network/oauth/token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  grant_type: 'client_credentials',
+                  client_id: '5b92a981-fd45-4fe5-a581-085842402ab2', // Your client ID
+                  client_secret: 'fa-secret-C745FCC3DB2E5C73828910' // Your client secret
+                })
+              });
+          
+              if (!response.ok) {
+                throw new Error('Failed to fetch access token');
+              }
+          
+              const data = await response.json();
+              console.log("access token: ", data)
+              return data.access_token;
+            } catch (error) {
+              console.error('Error fetching access token from FreeAgent:', error);
+              throw error;
+            }
+          };
+
+          const fetchData = async(query, accessToken)=>{
+            
+            console.log("access token: ", accessToken)
+            console.log("query: ", query)
+    
+            const url = 'https://freeagent.network/api/graphql';
+            axios.post(url, JSON.stringify(query), {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => {
+                console.log("data fetched from FreeAgent successfully: ",response.data.data.getTeamMembers.agents);
+            })
+            .catch(error => {
+                console.error('Error with FreeAgent api request:', error);
+            }); 
+          }
+        fetchData(query, await fetchAccessToken())
+  
+    } catch (error) {
+      console.error('Error fetching data from FeeAgent:', error);
+    }
+}
+// testFunc()
 
   
 

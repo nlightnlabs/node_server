@@ -1,0 +1,89 @@
+
+
+curl --request POST \
+  --url 'https://freeagent.network/oauth/token' \
+  --header 'content-type: application/json' \
+  --data '{"grant_type":"client_credentials","client_id": "5b92a981-fd45-4fe5-a581-085842402ab2","client_secret": "fa-secret-C745FCC3DB2E5C73828910"}'
+
+curl --request POST \
+    --url 'https://freeagent.network/api/graphql' \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer F141v1lH3E5qAYP3IU4598wmApSmWhmx0RVOOryuJIYYUIrkQn8zykdjl7IfDlQaMJCybpaxWRavXUk2Bk8PHfwmUCqxV2NpNZrTsDUWkAwfuxizG8OVeeqQCVnRELYflmb3NCGPuq7IpQe1GlADubdTWvmGJdwTWwhdnujgXy9mJA6SI05OmUAui2Vp8o8IeiV0cpVmZj6KKB3NNpAbNy0ETN557V1AQ3AdJUvctTLLm982WmZ16xtyFkHmGDQX"\
+    --data '{"query": "query{listEntityValues(entity: \"icon\", limit: 2){ entity_values {field_values} } }"}'
+
+
+
+curl --request POST \
+    --url 'https://freeagent.network/api/graphql' \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer QEBJ6veVI64Bj8LfyLqqFk4oBQWG0LOZY6Ed8YApQ9C88EvBAEApPVMdtEbOiHajWx1SwszvPvoNrHzEwv0RPFj2mHKbjCaTtap5vClwejRWaslfom8NypLoSxQgEEJJUdABkKUADL4xQPYaoYLffGxYxqRTvSbDLRLxxvqYV0DMTN5xwvvyiIZWS8IDUknNWBysqrlhTH77uZ5oPj7DcqRnzZcMG1vUK0gj5CSO48Kmod0RWgwzPlYT8XclR6qy"\
+    --data '{"query": "query{getEntities(alphabetical_order:true) {name, display_name, label, label_plural, entity_id}}"}'
+
+
+# users
+curl --request POST \
+    --url 'https://freeagent.network/api/graphql' \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer 4aBy2alC5HEbL8cUJKxViHsb71olH4kOANb5jrQVNDXqC5PHg3HeT42wvNyLMeyXyHXNW9HfsiAqAxIrCvtsYlEOn6WdgbcQhDRU7C9FNnYrkDBHoLuJwydvLVcdySPAmgkCvLlmXTI9IhYGpbiSmL7XSRXQs5Fdc9A01p9IawjjodokZbTW2J65uT863M8TTh3TZkkcMZP1Jx9eRzHot5sNwNEbekV8plJaIrvbhVV4U7mbuPzXdJnzEP6cSfZE"\
+    --data '{"query": "query{getTeamMembers(active: true) {agents {id, full_name, teamId, email_address, access_level, status, job_title, roles {id, name, import, export, bulk_edit, bulk_delete, task_delete, is_admin}, subteams {id, name, description}}}}"}'
+    
+
+
+# UPDATE
+    curl --request POST \
+    --url 'https://freeagent.network/api/graphql' \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer rGtvBu3gP6Ur7CXsE2funipNRmabjxD4fEaMfUO5HsBLtPsIzKT5JpPu3pQrn6SeKPFmbaoSbHxqqsmFipYmXfrOhnJKN8yBrdQUspuIjuM7E84bKiotPO52N0TwjttDamdJkapTxjwa4fTefvLUUi8WuVj4sZlZOpLzoWHrKG46yGdWYCYibMIsEXWhPg58x4WYoPOxuB4tzK8WUXmN4vS2to8PIzTKYx15R2UsVHg1Gj60YnJSZFEmPIJeqNXp"\
+    --data '{"query": "mutation{updateEntity(entity: \"custom_app_15\", id: \"f4be85bc-1fb7-4d2b-88fd-1b53a71dcc17\",field_values: {subject:\"Need Support\"}){entity_value {id, seq_id, field_values}}}"}'
+
+
+# DELETE
+    curl --request POST \
+    --url 'https://freeagent.network/api/graphql' \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer kBa5pDXftC6itrwN6YeLcPmvsSMtoW9ZoVTOPnuJdGaGfpL4AM0L8zjEbszXRaGF1rMsg0Mu2DA2AENT72MhYDkeDwh36e5Qx0CO3g2vrmrnBfzySmH9tSCpjvjOhnPzzRf1UuW3jfplMdidrs7n1BhQ00fl1DaypKHSKivDpZj6lk2dcw6EkT2nwXvMEGg3xUDTq3KttbhQN3OfMHyH5U0sPnHsPoPySIfngcMPxMOh5feZrKu6JF9sm1ccrfPm"\
+    --data '{"query": "mutation{deleteEntity(entity: \"custom_app_15\", id: \"f4be85bc-1fb7-4d2b-88fd-1b53a71dcc17\"){ entity_value {id} }}"}'
+
+
+#CONDITIONAL LIST
+curl --request POST \
+    --url 'https://freeagent.network/api/graphql' \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer "fUcmk7uz0EVZQTFcx7X8UxuqzUHWNML6Zd9ds9UJyGyV6rBeiKMszY4ktffOkvSxFhgdgvH8SPuq2wZnPd3nFF0kHiSDEHLXKY31inbtmtKxva4nJFHmm1G7AcSoSh0nRlq0mLkyyoInrQpZOTOlx0oZ5SXXQrxTZwKftw72HhPYIAOQV6wu26DMXLJVnLlE8wsP9iu7J3xDb0BKNlNXea3zD8e7ky0xzBeyqr4jab09TMGyATr7ILneGvpJ32F6"\
+    --data '{"query": "query{listEntityValues(entity: \"custom_app_56\", fields: [\"subcategory\"], filters : [{field_name : \"category\", operator : \"equals\", values : [\"Event Management\"]}], order : [[seq_id,\"ASC\"]]){ entity_values {id, field_values }}}"}'
+
+
+    
+        
+        
+
+-- Get Data in an app
+"query{listEntityValues(entity: $entity, fields: $fields, order: $order, limit: $limit, offset: $offset, pattern: $pattern, filters: $filters) {count, entity_values {id,seq_id, field_values}}}"
+
+-- Get user data
+"query{getTeamMembers(active: true) {agents {id, full_name, teamId, email_address, access_level, status, job_title, roles {id, name, import, export, bulk_edit, bulk_delete, task_delete, is_admin}, subteams {id, name, description}}}}"
+
+-- Get Alls Apps
+"query{getEntities(alphabetical_order:true) {name, display_name, label, label_plural, entity_id}}"
+
+
+
+curl --request POST \
+    --url 'https://freeagent.network/api/graphql' \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer lDhWkKrxzWb188vfblQ1WAb0rVMq3JdPp4ZjTWlHWrDvbLi7rN2sCR1Df1AXkg98bb1WIS7yPmeimQJgmHeoz1aL7usttKJ4ZO5y2T9h59ONcfKkCVcBDNVDag6cQwgaIWri6oJRsIVrzQyISEc6JgtMsDEWSScIttPXXE7JtpQ1YmzjLW2wsI8A1FNNzp8J7uhEBh8unzWSYpwrMwFvmGJEz7NIiu3Kv59M1Iz3XpUwjEoq45xZ9afC0SVamqUQ"\
+    --data '{"query": "upsertCompositeEntity(entity: \"custom_app_15\",field_values: {subject:\"Test order\", order_date:\"2024-03-13\"},children: [[{\"entity\":\"custom_app_15_catalog_item\",\"field_values\":{\"quantity\":\"10\"}}]]){entity_value {id, field_values}, children{id, field_values}}}"}'
+
+
+
+"upsertCompositeEntity(entity: \"custom_app_15\",field_values: {subject:\"Test order\", order_date:\"2024-03-13\"},children: [[{\"entity\":\"custom_app_15_catalog_item\",\"field_values\":{\"quantity\":\"10\"}}]]){entity_value {id, field_values}, children{id, field_values}}}"
+
+
+curl --request POST \
+    --url 'https://freeagent.network/api/graphql' \
+    --header "Content-Type: application/json" \
+    --header "Authorization: Bearer Gp4TKj8BAyU4WEXHjjKdOcMR5xbeNS5JgsR0SEdtUgkBkem8zcTH4TAnjA1jIuaO9RgtCMbzcNpE6hCP9fBtHV74sCmr9mgtbOvykXAU4RaYPEV7e3BXR5azEyjx2UCn49KqvKMSbh4MkIXDFCdUYkv6DCZqOTXmEcCTxCDjUZDMzHR1AaT737agB3vi10xXykc6NQ9ZINI2y4mUqeHj5yKZTCdoqEIb0Pvlo7aRCJLgQFH1YezHrALr2oajy7Qa"\
+    --data '{"query": "query{listEntityValues(entity: \"announcement\", filters: [{field_name: \"id\", operator: \"equals\", values:[\"9c0d5f67-f34b-49bd-9493-0868dbf7f3c3\"]}], limit: 1){ entity_values {field_values} } }"}'
+
+
+data '{"query": "query{listEntityValues(entity: \"announcement\", filters: [{field_name: \"id\", operator: \"equals\", values:[\"9f5d608c-161e-453d-b59a-b82d64a1e71b\"]}], limit: \"1\")  { entity_values {id, field_values} } }"}'
