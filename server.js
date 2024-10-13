@@ -651,153 +651,49 @@ app.put("/nlightn/db/editUser", async(req, res)=>{
 
 
 //Basic GPT response
-app.post("/openai/gpt/ask", async(req,res)=>{
+app.post("/openai/gpt/ask", async(req, res) => {
+    console.log(req.body);
 
-    console.log(req.body)
-
-    const {prompt, data, temperature} = req.body;
-    console.log(prompt)
-    console.log(data)
-    console.log(temperature)
+    const { prompt, data, temperature } = req.body;
 
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
-    })
-    console.log("OPEN_AI_API_KEY",process.env.OPEN_AI_API_KEY)
+    });
+    console.log("OPEN_AI_API_KEY", process.env.OPEN_AI_API_KEY);
 
-    try{
-        const response = await openai.chat.completions.create(
-            {
-                model: "gpt-4o",
-                messages: [
-                    {"role": "user", "content": prompt},
-                    {"role": "system", "content": JSON.stringify(data) || null},
-                ],
-                max_tokens: 16300,
-                temperature: temperature || 0
-            }
-        )
-
-        // Set CORS headers to allow any origin
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'POST');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    try {
+        // Set response headers for streaming text
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Transfer-Encoding', 'chunked');
         
-        console.log(response.choices[0].message.content)
-        res.json(response.choices[0].message.content)
-        
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                { "role": "user", "content": prompt },
+                { "role": "system", "content": JSON.stringify(data) || null },
+            ],
+            stream: true,
+            max_tokens: 16300,
+            temperature: temperature || 0,
+        });
 
-    }catch(error){
-        console.log(error);
-    }
-});
-
-
-//GPT classify
-app.use("/openai/gpt/classify", async(req,res)=>{
-
-    const text = req.body.text;
-    const list = req.body.list;
-    console.log("text",text)
-    console.log("list",list)
-
-    const openai = new OpenAI({
-        apiKey: process.env.OPEN_AI_API_KEY,
-    })
-
-    const prompt = `Which one of the following items in this list: ${list}, does ${text} best fit into?. Respond only with the exact name of the item in the list.`
-    
-    try{
-        const response = await openai.chat.completions.create(
-            {
-                model: "gpt-4o",
-                messages: [{"role": "user", "content": prompt}],
-                temperature: 0
+        // Streaming response chunks to the client
+        for await (const chunk of response) {
+            const content = chunk.choices[0]?.delta?.content || "";
+            if (content) {
+                res.write(content); // Stream the chunk back to the client
             }
-        )
+        }
 
-        // Set CORS headers to allow any origin
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'POST');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        // Close the response stream when done
+        res.end();
 
-        console.log(response.choices[0].message.content)
-        res.json(response.choices[0].message.content)
-
-    }catch(error){
-        console.log(error);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("An error occurred while processing the request.");
     }
 });
 
-
-// GPT Return List
-app.get("/openai/gpt/list/:prompt", async(req,res)=>{
-
-    const promptText= req.params.prompt
-    console.log(prompt)
-
-    const openai = new OpenAI({
-        apiKey: process.env.OPEN_AI_API_KEY,
-    })
-
-    const prompt = `${promptText}. Return only a list with no numbers in json array format.`
-    
-    try{
-        const response = await openai.chat.completions.create(
-            {
-                model: "gpt-4o",
-                messages: [{"role": "user", "content": prompt}],
-                max_tokens: 400,
-                temperature: 0
-            }
-        )
-
-        // Set CORS headers to allow any origin
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'POST');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-        console.log(response)
-        res.json(JSON.parse(response.choices[0].message.content))
-    }catch(error){
-        console.log(error);
-    }
-});
-
-
-//GPT Return Data
-app.get("/openai/gpt/data/:prompt", async(req,res)=>{
-
-    const {promptText} = req.body
-
-    const openai = new OpenAI({
-        apiKey: process.env.OPEN_AI_API_KEY,
-    })
-
-    const prompt = `${promptText}. Summarize in json object format.`
-    
-    try{
-        const response = await openai.chat.completions.create(
-            {
-                model: "gpt-4o",
-                messages: [{"role": "user", "content": prompt}],
-                max_tokens: 1000,
-                temperature: 0
-            }
-        )
-
-        // Set CORS headers to allow any origin
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'POST');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-        //console.log(response)
-        res.json(JSON.parse(response.choices[0].message.content))
-
-    }catch(error){
-        //console.log(error);
-    }
-});
 
 //GPT Image Generation
 app.use("/openai/dalle/image", async(req,res)=>{
