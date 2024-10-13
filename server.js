@@ -55,7 +55,7 @@ const OpenAI = require('openai')
 const openai = new OpenAI({
     apiKey: process.env.OPEN_AI_API_KEY,
 })
-
+console.log("OPEN_AI_API_KEY",process.env.OPEN_AI_API_KEY,)
 
 
 const { engine } = require('express-handlebars');
@@ -233,20 +233,18 @@ app.post("/nlightn/db/deleteRecord", async (req,res)=>{
 
 //database query to get a table
 app.get("/nlightn/db/table/:table/:dbName?", async (req, res)=>{
-
+    
     const table = req.params.table;
     const dbName = req.params.dbName || process.env.PGDATABASE;
     const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
-    
     const dbQuery=(text, params) =>newpool.query(text, params);
 
     try{
         const result1 = await dbQuery(`SELECT * from ${table};`);
-        //console.log(result1.rows)
         const data = result1.rows
 
         const result2 = await dbQuery(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${table}'`)
-        //console.log(result2.rows)
+        console.log(result2.rows)
         const dataTypes = result2.rows
 
         res.json({data, dataTypes});
@@ -424,16 +422,16 @@ app.use("/nlightn/db/authenticateUser", async (req,res)=>{
 
     const query = `select ((select pwd from "users" where email='${email}') =crypt('${pwd}',(select pwd from "users" where email='${email}'))) as matched;`
 
-    // console.log(query);
+    console.log(query);
 
       try{    
         const result = await dbQuery(query);
-        // console.log(result)
+        console.log(result)
         let matchResult = result.rows[0].matched
         if(matchResult !==true){
             matchResult = false
         }
-        // console.log(matchResult)
+        console.log(matchResult)
         res.send(matchResult)
     } catch(err){
         console.log(err)
@@ -652,29 +650,31 @@ app.put("/nlightn/db/editUser", async(req, res)=>{
 
 
 
-
-
-
 //Basic GPT response
 app.post("/openai/gpt/ask", async(req,res)=>{
 
     console.log(req.body)
 
-    const {prompt} = req.body;
+    const {prompt, data, temperature} = req.body;
     console.log(prompt)
+    console.log(data)
+    console.log(temperature)
 
     const openai = new OpenAI({
         apiKey: process.env.OPEN_AI_API_KEY,
     })
-    console.log(process.env.OPEN_AI_API_KEY)
+    console.log("OPEN_AI_API_KEY",process.env.OPEN_AI_API_KEY)
 
     try{
         const response = await openai.chat.completions.create(
             {
-                model: "gpt-3.5-turbo",
-                messages: [{"role": "user", "content": prompt}],
-                max_tokens: 2000,
-                temperature: 0
+                model: "gpt-4o",
+                messages: [
+                    {"role": "user", "content": prompt},
+                    {"role": "system", "content": JSON.stringify(data) || null},
+                ],
+                max_tokens: 16300,
+                temperature: temperature || 0
             }
         )
 
@@ -710,7 +710,7 @@ app.use("/openai/gpt/classify", async(req,res)=>{
     try{
         const response = await openai.chat.completions.create(
             {
-                model: "gpt-3.5-turbo",
+                model: "gpt-4o",
                 messages: [{"role": "user", "content": prompt}],
                 temperature: 0
             }
@@ -745,7 +745,7 @@ app.get("/openai/gpt/list/:prompt", async(req,res)=>{
     try{
         const response = await openai.chat.completions.create(
             {
-                model: "gpt-3.5-turbo",
+                model: "gpt-4o",
                 messages: [{"role": "user", "content": prompt}],
                 max_tokens: 400,
                 temperature: 0
@@ -779,7 +779,7 @@ app.get("/openai/gpt/data/:prompt", async(req,res)=>{
     try{
         const response = await openai.chat.completions.create(
             {
-                model: "gpt-3.5-turbo",
+                model: "gpt-4o",
                 messages: [{"role": "user", "content": prompt}],
                 max_tokens: 1000,
                 temperature: 0
@@ -1087,7 +1087,7 @@ app.post('/nlightn/searchTable', async (req, res) => {
       console.log("python app file path: ", filePath);
   
       const pythonProcess = spawn('python3', [filePath], {
-          maxBuffer: 1024 * 1024 * 10, // 10 MB buffer size (adjust as needed)
+          maxBuffer: 1024 * 1024 * 100, // 100 MB buffer size (adjust as needed)
       });
   
       // Send the JSON object as a string to the Python script
@@ -1417,8 +1417,51 @@ const testFunc = async (req,res)=>{
 }
 // testFunc()
 
-  
 
+app.post('/python/runApp', async (req, res) => {
+    const appName = req.body.appName;
+    const args = req.body.args;
+
+    const requestPayload = {
+        appName: appName,
+        arguments: args
+    };
+
+    console.log(requestPayload)
+
+    try {
+        // Make a POST request to the Python server
+        const redirectedResponse = await axios.post('http://127.0.0.1:8000/python/runApp', requestPayload);
+        
+        // Send back the response from the Python server to the client
+        res.status(200).json(redirectedResponse.data);
+    } catch (error) {
+        console.error('Error occurred:', error);
+        res.status(500).json({ error: 'Error occurred', details: error.message });
+    }
+});
+
+// Google Maps Geolocation Coordinates
+app.post("/googlemaps/getGeoCoordinates", async (req, res) => {
+    const address = req.body.address; // Accessing zip_code from the POST request body
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${address}&key=${google_maps_api_key}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (response.status === 200 && data.status === 'OK') {
+            const location = data.results[0].geometry.location;
+            res.json({ "latitude": location.lat, "longitude": location.lng });
+        } else {
+            res.json({ "latitude": null, "longitude": null });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "An error occurred while fetching coordinates" });
+    }
+});
+    
       
 //setup port for server
 const port = process.env.PORT || 3001;
