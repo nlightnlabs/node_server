@@ -254,29 +254,6 @@ app.get("/nlightn/db/table/:table/:dbName?", async (req, res)=>{
     }
 })
 
-//database query to get a table
-app.post("db/data", async (req, res)=>{
-
-    const tableName = "users";
-
-    try{
-        const result1 = await dbQuery(`SELECT * from ${tableName};`);
-        //console.log(result1.rows)
-        const data = result1.rows
-
-        const result2 = await dbQuery(`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${tableName}'`)
-        //console.log(result2.rows)
-        const dataTypes = result2.rows
-
-        res.json({data, dataTypes});
-
-    } catch(err){
-        //console.log(err)
-    }
-})
-
-
-
 
 //database query to get a list from a table
 app.get("/nlightn/db/list/:table/:field", async (req, res)=>{
@@ -413,14 +390,15 @@ app.post("/nlightn/db/filterTable",async (req, res)=>{
 })
 
 
+
 // Authenticate user
 app.use("/nlightn/db/authenticateUser", async (req,res)=>{
     
     const params = req.body.params
-    const email = params.email
+    const email = params.username
     const pwd = params.pwd
 
-    const query = `select ((select pwd from "users" where email='${email}') =crypt('${pwd}',(select pwd from "users" where email='${email}'))) as matched;`
+    const query = `select ((select pwd from "users" where username='${username}') =crypt('${pwd}',(select pwd from "users" where username='${username}'))) as matched;`
 
     console.log(query);
 
@@ -442,8 +420,8 @@ app.use("/nlightn/db/authenticateUser", async (req,res)=>{
 //get user record
 app.use("/nlightn/db/userRecord", async (req, res)=>{
     const {params} = req.body
-    const email = params.email
-    const query =`select * from "users" where "email"='${email}' limit 1`
+    const email = params.username
+    const query =`select * from "users" where "username"='${username}' limit 1`
     try{
         const results = await dbQuery(query);
         //console.log(results);
@@ -472,8 +450,8 @@ app.post("/nlightn/db/addUser", async(req, res)=>{
 
     if(tableName =='users' && columns.includes('pwd')){
 
-        const emailLoc = columns.findIndex(x=>x==='email')
-        const email =values[emailLoc].toString()
+        const usernameLoc = columns.findIndex(x=>x==='username')
+        const username =values[usernameLoc].toString()
 
         const pwdIndex = columns.findIndex(str=>str=='pwd')
         values[pwdIndex]=`crypt('${values[pwdIndex]}',gen_salt('bf'))`
@@ -496,7 +474,7 @@ app.post("/nlightn/db/addUser", async(req, res)=>{
         console.log(values)
 
         // Query 1: check if user exists    
-        const query1 =`select "email" from ${tableName} where "email"='${email}' limit 1;`
+        const query1 =`select "username" from ${tableName} where "email"='${username}' limit 1;`
         console.log(query1)
 
         try{
@@ -607,11 +585,11 @@ app.put("/nlightn/db/editUser", async(req, res)=>{
         const pwdIndex = columns.findIndex(str=>str=='pwd')
         values[pwdIndex]=`crypt('${values[pwdIndex]}',gen_salt('bf'))`
 
-        const emailLoc = columns.findIndex(x=>x==='email')
-        const email =values[emailLoc].toString()
+        const usernameLoc = columns.findIndex(x=>x==='username')
+        const username =values[usernameLoc].toString()
 
         // Query 1: Check if user exists
-        const query1 = `select ((select email from "users" where email='${email}')) as matched;`
+        const query1 = `select ((select username from "users" where username='${username}')) as matched;`
 
         try {
             const results = await dbQuery(query1);
