@@ -90,8 +90,8 @@ const dbQuery=(text, params) =>pool.query(text, params);
 app.use("/nlightn/db/query", async (req, res)=>{
     
     const {query} = req.body
-    const dbName = req.body.dbName || process.env.PGDATABASE
 
+    const dbName = req.body.dbName || process.env.PGDATABASE
     const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
     const dbQuery=(text, params) =>newpool.query(text, params);
     
@@ -107,12 +107,12 @@ app.use("/nlightn/db/query", async (req, res)=>{
 })
 
 app.post("/nlightn/db/addRecord",async (req, res)=>{
-        // console.log(req)
+
         const {tableName, formData} = req.body
 
-        console.log("*******running add record query....****")
-        console.log("TABLE NAME: ",tableName)
-        console.log("FORM DATA: ", formData)
+        const dbName = req.body.dbName || process.env.PGDATABASE
+        const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+        const dbQuery=(text, params) =>newpool.query(text, params);
     
         // List of keys to delete
         let keysToDelete = ['id', 'record_created'];
@@ -153,7 +153,10 @@ app.post("/nlightn/db/addRecord",async (req, res)=>{
 app.post("/nlightn/db/updateRecord",async (req, res)=>{
     
     const {tableName, idField,recordId, formData} = req.body
-    //console.log(formData)
+    
+    const dbName = req.body.dbName || process.env.PGDATABASE
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
 
     let fieldsAndValues = []
     Object.keys(formData).map(field=>{
@@ -189,6 +192,10 @@ app.post("/nlightn/db/getRecord",async (req, res)=>{
 
     const {tableName,conditionalField,condition} = req.body
 
+    const dbName = req.body.dbName || process.env.PGDATABASE
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
+
     const query =`Select * from ${tableName} where "${conditionalField}"='${condition}' limit '1';`;
     console.log(query)
     try{
@@ -204,6 +211,10 @@ app.post("/nlightn/db/getRecords",async (req, res)=>{
 
     const {tableName,conditionalField,condition} = req.body
 
+    const dbName = req.body.dbName || process.env.PGDATABASE
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
+
     const query =`Select * from ${tableName} where "${conditionalField}"='${condition}';`;
     //console.log(query)
     try{
@@ -218,10 +229,11 @@ app.post("/nlightn/db/getRecords",async (req, res)=>{
 //Delete Record
 app.post("/nlightn/db/deleteRecord", async (req,res)=>{
 
-    const {params} = req.body
-    const tableName = params.tableName
-    const recordId = params.recordId
-    const idField = params.idField
+    const {tableName, recordId, idField} = req.body
+
+    const dbName = req.body.dbName || process.env.PGDATABASE
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
 
     try{    
         const result = await dbQuery(`DELETE from ${tableName} WHERE "${idField}" = '${recordId}' returning *;`)
@@ -335,12 +347,11 @@ app.get("/nlightn/db/value/:table/:lookupField/:conditionalField/:conditionalVal
 // Filter Table
 app.post("/nlightn/db/filterTable",async (req, res)=>{
     
-    const {params} = req.body
+    const {tableName, filterList} = req.body
 
-    //console.log(params)
-    const tableName = params.tableName
-    const filterList = params.filterList
-    //console.log(filterList)
+    const dbName = req.body.dbName || process.env.PGDATABASE
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
 
     let filterString = "" 
     const numberOfFilters = filterList.length
@@ -396,6 +407,10 @@ app.post("/nlightn/db/authenticateUser", async (req,res)=>{
     
     const {username, pwd} = req.body
 
+    const dbName = req.body.dbName || process.env.PGDATABASE
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
+
     const query = `select ((select pwd from "users" where username='${username}') =crypt('${pwd}',(select pwd from "users" where username='${username}'))) as matched;`
 
     console.log(query);
@@ -418,6 +433,11 @@ app.post("/nlightn/db/authenticateUser", async (req,res)=>{
 //get user record
 app.use("/nlightn/db/userRecord", async (req, res)=>{
     const {username, pwd} = req.body
+
+    const dbName = req.body.dbName || process.env.PGDATABASE
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
+
     const query =`select * from "users" where "username"='${username}' limit 1`
     try{
         const results = await dbQuery(query);
@@ -434,6 +454,10 @@ app.post("/nlightn/db/addUser", async(req, res)=>{
     const {tableName, formData} = req.body
     console.log(tableName)
     console.log(formData)
+
+    const dbName = req.body.dbName || process.env.PGDATABASE
+    const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
+    const dbQuery=(text, params) =>newpool.query(text, params);
 
     let columns = Object.keys(formData)
     let values = Object.values(formData)
