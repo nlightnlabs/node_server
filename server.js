@@ -392,11 +392,9 @@ app.post("/nlightn/db/filterTable",async (req, res)=>{
 
 
 // Authenticate user
-app.use("/nlightn/db/authenticateUser", async (req,res)=>{
+app.post("/nlightn/db/authenticateUser", async (req,res)=>{
     
-    const params = req.body.params
-    const email = params.username
-    const pwd = params.pwd
+    const {username, pwd} = req.body
 
     const query = `select ((select pwd from "users" where username='${username}') =crypt('${pwd}',(select pwd from "users" where username='${username}'))) as matched;`
 
@@ -419,8 +417,7 @@ app.use("/nlightn/db/authenticateUser", async (req,res)=>{
 
 //get user record
 app.use("/nlightn/db/userRecord", async (req, res)=>{
-    const {params} = req.body
-    const email = params.username
+    const {username, pwd} = req.body
     const query =`select * from "users" where "username"='${username}' limit 1`
     try{
         const results = await dbQuery(query);
@@ -434,12 +431,8 @@ app.use("/nlightn/db/userRecord", async (req, res)=>{
 //add user record
 app.post("/nlightn/db/addUser", async(req, res)=>{
 
-    const {params} = req.body
-    console.log(params)
-    const tableName = params.tableName
+    const {tableName, formData} = req.body
     console.log(tableName)
-
-    const formData = params.formData
     console.log(formData)
 
     let columns = Object.keys(formData)
@@ -474,7 +467,7 @@ app.post("/nlightn/db/addUser", async(req, res)=>{
         console.log(values)
 
         // Query 1: check if user exists    
-        const query1 =`select "username" from ${tableName} where "email"='${username}' limit 1;`
+        const query1 =`select "username" from ${tableName} where "username"='${username}' limit 1;`
         console.log(query1)
 
         try{
