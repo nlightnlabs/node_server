@@ -90,7 +90,6 @@ const dbQuery=(text, params) =>pool.query(text, params);
 app.use("/nlightn/db/query", async (req, res)=>{
     
     const {query} = req.body
-
     const dbName = req.body.dbName || process.env.PGDATABASE
     const newpool = new Pool({...(pool._clients[0].connectionParameters),...{["database"]:dbName}});
     const dbQuery=(text, params) =>newpool.query(text, params);
