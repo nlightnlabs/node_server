@@ -13,7 +13,8 @@ app.options('*', cors());
 //Import environment evariables
 const dotenv = require('dotenv')
 dotenv.config();
-console.log(process.env.NODE_ENV)
+console.log(process.env.ENV)
+const ENV = process.env.ENV || "production"
 
 //Create path functions
 import path from 'path';
@@ -781,15 +782,19 @@ app.use("/openai/whisper", upload.single("file"), async (req, res) => {
 
 
 // AWS S3  access
-const region = "us-west-1"
-const accessKeyId = process.env.AWS_S3_ACCESS_KEY
-const secretAccessKey = process.env.AWS_S3_SECRET_KEY
-const s3 = new aws.S3({
-    region,
-    accessKeyId,
-    secretAccessKey,
-    signatureVersion: 'v4'
-  })
+const s3Config = {
+    region: "us-west-1",
+    signatureVersion: "v4",
+  };
+
+// If running in "development", set access keys
+if (ENV === "development") {
+    s3Config.accessKeyId = process.env.NLIGHTN_AWS_ACCESS_KEY_ID;
+    s3Config.secretAccessKey = process.env.NLIGHTN_AWS_SECRET_ACCESS_KEY;
+  }
+
+const s3 = new aws.S3(s3Config);
+
 
 // Upload files into folder in AWS s3
 app.use('/aws/getS3FolderUrl', async (req,res)=>{
